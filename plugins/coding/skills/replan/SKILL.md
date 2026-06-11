@@ -1,0 +1,86 @@
+---
+name: replan
+description: Iterative deep planning with critiques and alternatives. Use when facing complex design decisions requiring thorough analysis.
+allowed-tools: Read, Glob, Grep, WebSearch
+---
+
+# Replan
+
+You are going to **replan** — an iterative process of designing, critiquing, and refining a plan.
+
+Claude tends to *satisfice*: it commits to the first workable approach it finds. For design decisions with high switching costs (architecture, data models, API surfaces) you want the *best* approach, not the first one that clears the bar. This skill forces multiple passes of structured critique before any design is committed.
+
+## Process
+
+### 1. Understand & Clarify
+
+- Read relevant code, documentation, and constraints
+- State any assumptions you're making
+- Ask clarifying questions before proceeding — don't build an elaborate plan on a misunderstood requirement
+
+### 2. Initial Plan
+
+Design your first approach, considering requirements and existing solutions. Expect it to be imperfect.
+
+### 3. Critique
+
+Generate thorough, *specific* critiques of your plan:
+
+- Does it balance simplicity with good engineering?
+- Is it maintainable, testable, DRY, scalable?
+- Scrutinize for "hand-wavy" aspects — don't assume how things work, study the code
+- For novel libraries/APIs, validate assumptions with web searches
+- Note uncertainties as risks
+
+Vague critiques like "this could be more robust" are useless. Aim for "this assumes the client handles reconnection, but I haven't verified that."
+
+### 4. Alternatives
+
+Brainstorm alternatives that address the specific weaknesses found in step 3. Goals:
+
+- Simplify the plan
+- Reduce complexity and risk
+- Improve code quality and maintainability
+
+### 5. Develop Best Alternative
+
+Select the most promising alternative and flesh it out to the *same level of detail* as the original. A hand-wavy alternative that "sounds simpler" isn't a real comparison.
+
+### 6. Iterate
+
+Repeat steps 3-5 at least **three times**, asking for user feedback at each iteration. The checkpoints aren't just for steering — they're where the user injects context you can't grep for: product goals, domain constraints, recent team decisions, upcoming migrations.
+
+### 7. Final Plan
+
+Assemble the best features from all iterations into a robust final plan.
+
+## Output Format
+
+For each iteration, present options with pros/cons:
+
+### Option A: [Name]
+
+[Description]
+
+**Pros:** ...
+**Cons:** ...
+**Risks:** ...
+
+### Recommendation
+
+[Which option and why, per design principles]
+
+## Guidelines
+
+- Consider Kent Beck's Simple Design rules (or your project's stated design principles)
+- Consider coupling, cohesion, testability
+- Be honest about tradeoffs
+- Ask questions — don't guess
+
+This skill is for *thinking*, not *doing*: it deliberately has no `Write` or `Edit` access, so Claude can't start implementing before the plan is settled.
+
+## Adapting for your project
+
+- **Add a "Required Reading First" section** pointing to your `CLAUDE.md`/`AGENTS.md`, architecture docs, or design principles — every listed file is read at the start of each invocation, so keep it short and high-value.
+- **Add domain-specific critique prompts** (e.g. "does this respect our backwards-compatibility guarantees?", "how does this affect cold-start latency?", "does this add dependencies, and are they justified?").
+- **Adjust the iteration count.** Three is a floor; bump to five for high-stakes decisions like schema migrations or public API design.

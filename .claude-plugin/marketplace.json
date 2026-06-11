@@ -1,0 +1,19 @@
+{
+  "name": "photostructure",
+  "owner": {
+    "name": "Matthew McEachen",
+    "url": "https://photostructure.com/coding/"
+  },
+  "metadata": {
+    "description": "Opinionated Claude Code workflow skills for disciplined planning, proof-based review, and clean Conventional Commits."
+  },
+  "plugins": [
+    {
+      "name": "coding",
+      "source": "./plugins/coding",
+      "description": "Five workflow skills: replan (iterative planning), review and review-staged (proof-based code review), gitplan and stage (disciplined Conventional-Commit staging).",
+      "category": "workflow",
+      "keywords": ["claude-code", "code-review", "planning", "git", "conventional-commits"]
+    }
+  ]
+}
