@@ -6,6 +6,8 @@ allowed-tools: Bash, Read, Glob, Grep, Write
 
 # Stage Session Changes
 
+> More on these workflows: [photostructure.com/coding](https://photostructure.com/coding/) (no dedicated `stage` article yet)
+
 Stage ONLY the changes that belong to the current body of work and compose a Conventional Commit message.
 
 If, after checking the current git status, you find that all of your changes have been committed already, tell the user that: this skill is done.

@@ -6,6 +6,8 @@ allowed-tools: Read, Glob, Grep, WebSearch
 
 # Replan
 
+> Documented in depth: [Claude picks the first idea that works. Make it pick the best one.](https://photostructure.com/coding/claude-code-replan/)
+
 You are going to **replan** — an iterative process of designing, critiquing, and refining a plan.
 
 Claude tends to *satisfice*: it commits to the first workable approach it finds. For design decisions with high switching costs (architecture, data models, API surfaces) you want the *best* approach, not the first one that clears the bar. This skill forces multiple passes of structured critique before any design is committed.

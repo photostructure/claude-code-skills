@@ -6,6 +6,8 @@ allowed-tools: Bash, Read, Glob, Grep, Edit, Write, WebSearch
 
 # Code Review
 
+> Documented in depth: [Most AI code reviews are noise. Here's how to fix that.](https://photostructure.com/coding/claude-code-review/)
+
 Review the mentioned code for potential issues and improvements.
 
 Review critically — don't assume correctness. Question every design choice and flag anything that would fail a production code review. Assume any prior git state or file contents you gathered is stale, especially if the user re-runs this skill or asks you to re-read.

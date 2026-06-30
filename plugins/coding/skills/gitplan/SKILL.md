@@ -9,6 +9,8 @@ allowed-tools: Bash, Read, Glob, Grep, Edit, Write, WebSearch, Skill
 
 # Review and plan git commits
 
+> More on these workflows: [photostructure.com/coding](https://photostructure.com/coding/)
+
 **Never create megacommits.** Each commit should be focused, coherent, and reviewable.
 
 If the repository has a layered structure (e.g. shared utilities → core → feature packages → app), work through it from the lowest-level layer upward so dependencies land before their consumers.
