@@ -11,7 +11,7 @@
     {
       "name": "coding",
       "source": "./plugins/coding",
-      "description": "Five workflow skills: replan (iterative planning), review and review-staged (proof-based code review), gitplan and stage (disciplined Conventional-Commit staging).",
+      "description": "Eight workflow skills: replan (iterative planning), review and review-staged (proof-based code review), gitplan and stage (disciplined Conventional-Commit staging), and the Technical Project Plan workflow (tpp, handoff, tpp-orchestrate — multi-session plan files with serial orchestration, TDD subagents, and dual vetted reviews).",
       "category": "workflow",
       "keywords": ["claude-code", "code-review", "planning", "git", "conventional-commits"]
     }
