@@ -22,6 +22,9 @@ Study the project's coding standards and design principles — e.g. `CLAUDE.md`,
 - Speculative future risks ("if someone later removes this guard...")
 - Feature requests or suggestions disguised as issues
 - Things you haven't proven with concrete evidence from the codebase
+- Anything a linter, typechecker, or compiler will catch — CI handles those
+- Issues the code explicitly silences (`// eslint-disable`, `# noqa`) — the author already made that call
+- Real issues on lines the change does not touch — out of scope
 
 For EVERY potential issue, you MUST complete these steps before reporting:
 
@@ -31,7 +34,16 @@ For EVERY potential issue, you MUST complete these steps before reporting:
 4. **Construct a concrete failing scenario** — if you can't describe exactly how the bug manifests, it's not an issue
 5. **Discard it** if your research shows it's intentional or already handled
 
-**Use subagents liberally:**
+**Use subagents along two axes: perspective and mode.**
+
+Perspectives (run in parallel, one subagent each):
+
+- **CLAUDE.md / design-principles compliance** — audit the change against the project's written guidance
+- **Shallow bug scan** — read just the diff and flag obvious logic errors, off-by-ones, missing awaits, etc.
+- **Historical context** — `git blame` and `git log` on the changed lines. Understand *why* the code is the way it is before suggesting it should be different. Check prior PR comments on the same files; past review consensus often still applies
+- **In-code constraints** — read comments adjacent to the change. They often spell out invariants the diff alone doesn't reveal
+
+Modes:
 
 - **Exploration**: When more than three files need review, or the code is complex, launch Explore subagents (one per file/area) to gather findings
 - **Validation**: Before reporting ANY issue, launch a subagent to verify it — have it trace the full call chain, search for guards/handlers you might have missed, and read the relevant design docs. If the subagent can't confirm the bug, discard the issue
