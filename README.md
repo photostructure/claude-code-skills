@@ -1,6 +1,6 @@
 # Claude Code coding skills
 
-An opinionated [Claude Code](https://code.claude.com) plugin marketplace with eight
+An opinionated [Claude Code](https://code.claude.com) plugin marketplace with nine
 workflow skills for disciplined planning, proof-based review, clean commits, and
 multi-session Technical Project Plans (TPPs).
 Documented in depth at [photostructure.com/coding](https://photostructure.com/coding/).
@@ -10,6 +10,7 @@ Documented in depth at [photostructure.com/coding](https://photostructure.com/co
 | `replan`         | Iterative critique-and-refine planning. Forces multiple passes before committing to a design.  | [Claude picks the first idea that works. Make it pick the best one.](https://photostructure.com/coding/claude-code-replan/) |
 | `review`         | Code review that requires *proof* before reporting — a short list of real bugs, not noise.     | [Most AI code reviews are noise. Here's how to fix that.](https://photostructure.com/coding/claude-code-review/) |
 | `review-staged`  | The same proof-based review, scoped to `git diff --cached`, then drives a clean commit.        | [Most AI code reviews are noise. Here's how to fix that.](https://photostructure.com/coding/claude-code-review/) |
+| `double-review`  | Validation gate: two independent reviews (codex + a Claude subagent) of the same diff, every finding vetted against ground truth before accept/veto. | [Most AI code reviews are noise. Here's how to fix that.](https://photostructure.com/coding/claude-code-review/) |
 | `gitplan`        | Untangle a large working tree into coherent, single-purpose Conventional Commits.              | — |
 | `stage`          | Stage only the hunks the current session touched — never the whole file — and commit cleanly.  | — |
 | `tpp`            | Work on a Technical Project Plan: read the plan, do the current phase, record discoveries. Bundles a reference `TPP-GUIDE.md`. | [Claude Code has amnesia. So do PRs, changelogs, and your future self.](https://photostructure.com/coding/claude-code-tpp/) |
@@ -55,6 +56,7 @@ claude-code-skills/
             ├── replan/SKILL.md
             ├── review/SKILL.md
             ├── review-staged/SKILL.md
+            ├── double-review/SKILL.md
             ├── gitplan/SKILL.md
             ├── stage/SKILL.md
             ├── tpp/

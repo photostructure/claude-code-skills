@@ -48,34 +48,26 @@ Triage the subagent's open questions. Decision-worthy ones go to the user (`AskU
 
 ### 4. Review twice, independently
 
-Run two reviews of the TPP's diff, blind to each other:
-
-- **codex**: `codex exec --sandbox read-only "/review <scoped prompt>"` — run it in the background with output to a file; reviews take minutes.
-- **A Claude subagent** running the `/review` skill (or its methodology: proof-before-reporting) on the same diff.
-
-Scope both prompts identically: name the spec/reference files, the diff range, and an explicit **scrutiny list** of the riskiest areas (the things you'd check first — stateful APIs, encoding boundaries, off-by-one-prone length math, whatever this TPP touches).
-
-While the reviews run, **read the new code yourself**. You are the third reviewer, and the only one who knows the whole roadmap.
+Run the double-review gate on the TPP's diff — read and follow
+[../double-review/SKILL.md](../double-review/SKILL.md): two independent
+reviewers (codex + a Claude review subagent) over the identical scope, blind
+to each other, while you read the new code yourself as the third reviewer —
+the only one who knows the whole roadmap. Scope both reviewer prompts with
+this TPP's spec/reference files, the diff range, and a scrutiny list of the
+riskiest areas the plan touches.
 
 ### 5. Vet every finding — accept and veto only with proof
 
-For each finding from either reviewer (and your own reading):
+Per the gate (steps 3-4 of `double-review`): test each finding against the
+ground truth you identified before the first TPP; accept or veto only with
+that evidence; every accepted finding gets a pinning test whose expected
+values come from ground truth. Full suite green again.
 
-1. Construct the empirical test: run the ground truth and the new code on the same input; compare.
-2. **Accept** only when ground truth confirms the bug. **Veto** only when ground truth confirms the code is right (or the finding demands fidelity nothing requires — e.g. mimicking a reference's internals on a path no contract pins).
-3. If a reviewer's diagnosis is right but its fix is mediocre, take the better solution — reviewers identify problems; you own the remedy.
-
-Reviewer confidence, eloquence, and agreement between reviewers are **not** evidence. Two reviewers agreeing on a wrong finding is common; one command against ground truth beats both.
-
-### 6. Fix and pin
-
-Apply accepted fixes. **Every accepted finding gets a pinning test** whose expected values are derived from ground truth (paste the command that produced them into the test's comment). Full suite green again.
-
-### 7. Record the verdicts
+### 6. Record the verdicts
 
 Add a "Post-review fixes" section to the TPP listing every finding — accepted **and** vetoed — with the evidence for each verdict. Vetoes especially: the next session will see the same "bug" and must not re-litigate it.
 
-### 8. Close out
+### 7. Close out
 
 Move the TPP to `_done/`, update the roadmap's status section, and make **one coherent commit per TPP** (implementation + tests + TPP move together), following the repo's commit conventions. Then start the next TPP.
 
@@ -83,12 +75,11 @@ Move the TPP to `_done/`, update the roadmap's status section, and make **one co
 
 - **Never let a review gate slip.** "The agent's tests pass and the diff looks clean" is exactly the state in which review has found real bugs.
 - **Rebuild before testing built artifacts.** CLI/dist tests against a stale build silently test old code.
-- **Long-running reviewers run in the background**; keep working (your own read of the code) while they grind.
 - **Report honestly.** The per-TPP summary to the user lists: what shipped, findings accepted/vetoed (with one-line reasons), open questions, and anything you diverged on.
 
 ## Adapting for your project
 
 - **Name the ground truth explicitly** — e.g. "CPython 3.12 via `uv run python -c ...` in the reference submodule", "the staging API", "the RFC's test vectors". The vetting step is only as strong as this.
-- **Swap reviewers freely**: the structure needs two *independent* reviews, not codex specifically. Any external reviewer plus a Claude `/review` subagent works.
+- **Reviewer choices and scrutiny-list tuning** live in the gate — adapt [../double-review/SKILL.md](../double-review/SKILL.md), and this loop inherits it.
 - **Tune the model heuristic** to your roster — the invariant is "risk decides the model", not the specific names.
 - **Rename the file conventions** (`_todo/`, `_done/`, the roadmap) to whatever your plan system uses; the loop doesn't care about paths.

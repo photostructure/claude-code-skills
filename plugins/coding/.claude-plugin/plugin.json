@@ -1,6 +1,6 @@
 {
   "name": "coding",
-  "description": "Opinionated Claude Code workflow skills: iterative planning (replan), proof-based code review (review, review-staged), disciplined Conventional-Commit staging (gitplan, stage), and the Technical Project Plan workflow (tpp, handoff, tpp-orchestrate).",
+  "description": "Opinionated Claude Code workflow skills: iterative planning (replan), proof-based code review (review, review-staged, double-review), disciplined Conventional-Commit staging (gitplan, stage), and the Technical Project Plan workflow (tpp, handoff, tpp-orchestrate).",
   "author": {
     "name": "Matthew McEachen",
     "url": "https://photostructure.com/coding/"
