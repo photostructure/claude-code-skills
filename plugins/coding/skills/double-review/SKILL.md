@@ -61,8 +61,8 @@ Run both against the identical scope, blind to each other:
   padding. Give it the same diff range and scrutiny list, and require
   file:line + evidence for every finding.
 
-Don't idle while they grind: **read the new code yourself**. You are the
-third reviewer, and the only one who knows the full context of what the
+Don't idle while they grind: **read the new code yourself**. You are yet
+another reviewer, and the only one who knows the full context of what the
 change was supposed to do. If a reviewer goes silent well past its usual
 turnaround, keep working — treat a late report as a cross-check of what
 you've already verified, not a blocker.
