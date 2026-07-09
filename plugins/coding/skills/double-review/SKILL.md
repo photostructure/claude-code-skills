@@ -48,12 +48,29 @@ Run both against the identical scope, blind to each other:
 - **codex** (external reviewer):
 
   ```bash
-  codex exec --sandbox read-only "/review <scoped prompt>" </dev/null >/tmp/codex-review.txt &
+  codex exec --sandbox read-only "/review <scoped prompt>" </dev/null >/tmp/codex-review.txt
   ```
 
-  Two hard-won gotchas: **stdin must be closed** (`</dev/null`) or
-  `codex exec` hangs forever at zero CPU, and reviews take minutes — always
-  run it in the background with output to a file.
+  Launch it through your **harness's own background mechanism** (in Claude
+  Code: the Bash tool's `run_in_background` — *not* a trailing shell `&`) so the
+  harness tracks the real `codex` process and delivers a genuine completion
+  notification. Then wait for that notification; don't busy-poll.
+
+  Hard-won gotchas:
+
+  - **Close stdin** (`</dev/null`) or `codex exec` hangs forever at zero CPU.
+  - **Never combine a shell `&` with the harness background flag.**
+    Double-backgrounding detaches codex: the harness tracks the *shell*, which
+    returns instantly because of the `&`, so it fires a **false "completed"** the
+    moment codex launches while the real review runs on with nothing waiting on
+    it — you end up hand-polling a growing trace. Pick exactly one backgrounder.
+  - **Reviews take minutes** (xhigh can run 10+ min on a large diff). If your
+    harness can't background-and-notify, use a shell `&` with an explicit
+    completion sentinel and poll *that* line (bounded), never the bare `&`:
+    `( codex exec … </dev/null; echo "__CODEX_DONE__ $?" ) >/tmp/codex-review.txt 2>&1 &`
+  - **codex emits a huge reasoning trace.** Extract only its final answer — the
+    last `codex`-turn block — rather than reading the whole file into context
+    (e.g. `awk '/^codex$/{n=NR} END{print n}'` then `tail -n +N`).
 
 - **A Claude review subagent** running this plugin's
   [`../review/SKILL.md`](../review/SKILL.md) methodology: proof before
