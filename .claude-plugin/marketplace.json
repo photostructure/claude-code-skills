@@ -5,15 +5,22 @@
     "url": "https://photostructure.com/coding/"
   },
   "metadata": {
-    "description": "Opinionated Claude Code workflow skills for disciplined planning, proof-based review, and clean Conventional Commits."
+    "description": "Opinionated Claude Code skills for disciplined planning, proof-based review, clean Conventional Commits, and web security review."
   },
   "plugins": [
     {
       "name": "coding",
       "source": "./plugins/coding",
-      "description": "Eight workflow skills: replan (iterative planning), review and review-staged (proof-based code review), gitplan and stage (disciplined Conventional-Commit staging), and the Technical Project Plan workflow (tpp, handoff, tpp-orchestrate — multi-session plan files with serial orchestration, TDD subagents, and dual vetted reviews).",
+      "description": "Nine workflow skills: replan (iterative planning), review, review-staged, and double-review (proof-based code review), gitplan and stage (disciplined Conventional-Commit staging), and the Technical Project Plan workflow (tpp, handoff, tpp-orchestrate — multi-session plan files with serial orchestration, TDD subagents, and dual vetted reviews).",
       "category": "workflow",
       "keywords": ["claude-code", "code-review", "planning", "git", "conventional-commits"]
+    },
+    {
+      "name": "security",
+      "source": "./plugins/security",
+      "description": "web-security-review: a best-of-three composite (Sentry, Anthropic, GitHub awesome-copilot) that audits JavaScript/TypeScript web apps for injection (incl. per-ORM raw + SQLite), XSS, authorization (IDOR/BOLA/mass-assignment), auth/session/JWT, SSRF, CSRF, secrets, and crypto — plus conditional passes for self-hosted deployment hardening and OIDC/SSO account-takeover. Reports only proven findings (a proof gate, not confidence scores).",
+      "category": "security",
+      "keywords": ["claude-code", "security", "security-review", "owasp", "javascript", "typescript", "web-security", "self-hosted", "oidc", "docker"]
     }
   ]
 }

@@ -1,0 +1,23 @@
+{
+  "name": "security",
+  "description": "Security review skills for Claude Code. web-security-review: a best-of-three composite (Sentry, Anthropic, GitHub awesome-copilot) that audits JavaScript/TypeScript web apps for injection (incl. per-ORM raw + SQLite), XSS, authorization (IDOR/BOLA/mass-assignment), auth/session/JWT, SSRF, CSRF, secrets, and crypto — plus conditional passes for self-hosted deployment hardening (Docker, network exposure, reverse-proxy trust) and OIDC/SSO account-takeover. Traces data flow; reports only proven findings (a proof gate, not confidence scores).",
+  "author": {
+    "name": "Matthew McEachen",
+    "url": "https://photostructure.com/coding/"
+  },
+  "homepage": "https://photostructure.com/coding/",
+  "license": "CC-BY-SA-4.0",
+  "keywords": [
+    "claude-code",
+    "skills",
+    "security",
+    "security-review",
+    "owasp",
+    "javascript",
+    "typescript",
+    "web-security",
+    "self-hosted",
+    "oidc",
+    "docker"
+  ]
+}
