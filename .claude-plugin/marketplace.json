@@ -21,6 +21,13 @@
       "description": "Two complementary JavaScript/TypeScript web security skills: web-security-review traces data flow and reports only proven vulnerabilities; web-security-hardening performs an applicability-aware OWASP ASVS 5.0.0 gap assessment across browser controls, input/files, identity/sessions/secrets, frameworks, storage, and deployment.",
       "category": "security",
       "keywords": ["claude-code", "security", "security-review", "security-hardening", "security-best-practices", "owasp", "asvs", "csp", "javascript", "typescript", "web-security", "self-hosted", "oidc", "docker"]
+    },
+    {
+      "name": "cpp",
+      "source": "./plugins/cpp",
+      "description": "Two complementary modern-C++ (C++17) native-addon skills: resource-review traces object and resource lifetimes and reports only proven memory/resource defects (use-after-free, double-free, leaks, out-of-bounds, integer overflow, data races, Node-API handle/reference/threadsafe-function misuse); project-setup performs an applicability-aware Met/Gap assessment of cross-platform node-gyp build config, per-OS/per-arch compiler hardening, sanitizer/static-analysis/CI wiring, and maintainable modern-C++ conventions.",
+      "category": "development",
+      "keywords": ["claude-code", "cpp", "modern-cpp", "memory-safety", "raii", "node-api", "node-addon-api", "node-gyp", "native-addon", "sanitizers", "addresssanitizer", "clang-tidy", "compiler-hardening", "cross-platform"]
     }
   ]
 }
