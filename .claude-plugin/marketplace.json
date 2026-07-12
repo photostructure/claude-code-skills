@@ -5,7 +5,7 @@
     "url": "https://photostructure.com/coding/"
   },
   "metadata": {
-    "description": "Opinionated Claude Code skills for disciplined planning, proof-based review, clean Conventional Commits, and web security review."
+    "description": "Opinionated Claude Code skills for disciplined planning, proof-based review, clean Conventional Commits, vulnerability review, and web security hardening."
   },
   "plugins": [
     {
@@ -18,9 +18,9 @@
     {
       "name": "security",
       "source": "./plugins/security",
-      "description": "web-security-review: a best-of-three composite (Sentry, Anthropic, GitHub awesome-copilot) that audits JavaScript/TypeScript web apps for injection (incl. per-ORM raw + SQLite), XSS, authorization (IDOR/BOLA/mass-assignment), auth/session/JWT, SSRF, CSRF, secrets, and crypto — plus conditional passes for self-hosted deployment hardening and OIDC/SSO account-takeover. Reports only proven findings (a proof gate, not confidence scores).",
+      "description": "Two complementary JavaScript/TypeScript web security skills: web-security-review traces data flow and reports only proven vulnerabilities; web-security-hardening performs an applicability-aware OWASP ASVS 5.0.0 gap assessment across browser controls, input/files, identity/sessions/secrets, frameworks, storage, and deployment.",
       "category": "security",
-      "keywords": ["claude-code", "security", "security-review", "owasp", "javascript", "typescript", "web-security", "self-hosted", "oidc", "docker"]
+      "keywords": ["claude-code", "security", "security-review", "security-hardening", "security-best-practices", "owasp", "asvs", "csp", "javascript", "typescript", "web-security", "self-hosted", "oidc", "docker"]
     }
   ]
 }

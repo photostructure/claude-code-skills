@@ -1,0 +1,13 @@
+This skill ("web-security-hardening") is distributed under the Creative Commons
+Attribution-ShareAlike 4.0 International License (CC BY-SA 4.0), because it adapts
+material from OWASP ASVS 5.0.0 and the OWASP Cheat Sheet Series.
+
+  CC BY-SA 4.0: https://creativecommons.org/licenses/by-sa/4.0/
+  OWASP ASVS: https://owasp.org/www-project-application-security-verification-standard/
+  OWASP Cheat Sheet Series: https://cheatsheetseries.owasp.org/
+
+You are free to share and adapt the material, including commercially, provided you
+give appropriate credit, indicate changes, and distribute your contributions under
+the same license. See ATTRIBUTION.md for credit and a description of changes.
+
+Composite adaptation Copyright (c) 2026 Matthew McEachen.
