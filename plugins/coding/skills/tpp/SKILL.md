@@ -27,12 +27,13 @@ Before any work, you MUST read:
 
 ## Process
 
-1. Read the referenced TPP. It will live in `_todo/`, or in a priority folder
-   (`_active/`, `_p1/`…`_p4/`) if this project uses them.
+1. Read the referenced TPP. It will live in `_todo/`, in a priority folder
+   (`_active/`, `_p1/`…`_p4/`), or in a documented feature integration queue
+   matching `_feat-<name>/` if this project uses them.
 2. Identify the current phase.
 3. Do the work for that phase.
 4. Update the TPP with progress and discoveries — gotchas, rejected approaches,
-   and the *why* behind decisions, not a transcript.
+   and the _why_ behind decisions, not a transcript.
 
 When context runs low before the work is done, run the `handoff` skill rather
 than letting the session end silently. When the TPP is complete, move it to

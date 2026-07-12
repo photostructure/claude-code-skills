@@ -42,7 +42,8 @@ Update the TPP as progress is made. The file is the handoff.
 
 ## Where TPPs live
 
-Choose one layout for this project.
+Choose one primary backlog layout for this project. A temporary feature
+integration queue may overlay either layout.
 
 ### Simple layout
 
@@ -66,6 +67,17 @@ YYYYMMDD-feature-name.md
 
 If using priority folders, moving a file between folders changes its priority.
 The filesystem location is the source of truth.
+
+### Feature integration queues
+
+Use `_feat-<name>/` when several TPPs must be coordinated and landed together
+on a feature branch, for example `_feat-auth/` or `_feat-face/`. This is a
+temporary integration queue, not another priority level.
+
+Each feature queue must contain a `README.md` defining its purpose, owning
+branch or worktree, dependency and landing order, completion gate, and the
+priority/frontmatter policy for its TPPs. Remove the queue after its completed
+plans move to `_done/` and the feature lands.
 
 ## Frontmatter
 
@@ -91,7 +103,9 @@ Adapt the fields to this project. Common fields:
 - `votes`, `views`: demand signals
 - `shelved: true`: evaluated and deferred indefinitely
 
-If using priority folders, `priority` must match the folder.
+If using priority folders, `priority` must match the folder. For a TPP in a
+`_feat-<name>/` queue, follow the effective priority documented by the
+project-specific guide or that queue's `README.md`.
 
 ## Placeholder TPPs
 
