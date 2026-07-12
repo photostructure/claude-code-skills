@@ -73,8 +73,10 @@ provide a control but its deployed configuration is outside the repository.
   adapter-specific guidance.
 - Inspect global and route-scoped pipes. A `ValidationPipe` only protects parameters with
   usable runtime metadata and DTO rules; TypeScript interfaces disappear at runtime.
-- `whitelist: true` strips undeclared properties; `forbidNonWhitelisted: true` rejects
-  them. Neither substitutes for authorization or field-level ownership rules.
+- With Nest's `class-validator` integration, `whitelist: true` strips properties that
+  have no validation decorator; `forbidNonWhitelisted: true` rejects them. A TypeScript
+  declaration alone is not enough. Neither option substitutes for authorization or
+  field-level ownership rules.
 - `transform: true` can coerce values. Confirm that coercion matches business semantics
   and does not turn malformed input into an accepted authorization-sensitive value.
 - Trace guards, interceptors, middleware, pipes, and exception filters across global,
@@ -91,9 +93,10 @@ custom server as separate execution surfaces when present.
 
 ### Server/client boundary
 
-- Only variables intentionally prefixed for client exposure (for example `NEXT_PUBLIC_`)
-  should enter browser bundles. Also inspect values serialized into pages, React Server
-  Component payloads, initial state, and build artifacts.
+- Only intentional public values should enter browser bundles. Inspect `NEXT_PUBLIC_*`
+  variables and `next.config.js` `env` entries—the latter are always bundled even without
+  the prefix—plus values serialized into pages, React Server Component payloads, initial
+  state, and build artifacts.
 - A server-only module is useful evidence only if all import paths preserve the boundary.
 - Treat Server Actions and Route Handlers as remotely callable endpoints: validate their
   inputs and repeat authentication and object/action authorization inside the server
@@ -121,13 +124,16 @@ protection for those contexts, then look for deliberate escape hatches and brows
 | --- | --- |
 | React | `dangerouslySetInnerHTML` |
 | Vue | `v-html` |
-| Angular | `[innerHTML]`, direct DOM APIs, `DomSanitizer` bypass methods |
+| Angular | direct DOM APIs and `DomSanitizer` `bypassSecurityTrust*` methods; normal `[innerHTML]` is sanitized |
 
 - Raw HTML is not automatically a Gap: establish whether the value is trusted, safely
-  sanitized with a maintained HTML sanitizer and appropriate policy, or attacker-shaped.
-- Template auto-escaping does not make URL, style, JavaScript, or DOM API contexts safe.
-  Review `href`/`src`, navigation, `postMessage`, storage, DOM insertion, and dynamic code
-  separately.
+  sanitized by the framework or a maintained HTML sanitizer under an appropriate policy,
+  or attacker-shaped. Angular sanitizes untrusted values in HTML and URL template
+  contexts, but not resource URLs; trusting bypass APIs and direct DOM calls bypass that
+  boundary.
+- Do not extrapolate text escaping to every URL, style, JavaScript, resource-URL, or DOM
+  API context. Credit the detected framework's documented contextual protections, then
+  review `href`/`src`, navigation, `postMessage`, storage, DOM insertion, and dynamic code.
 - Client-side validation improves user experience but never satisfies a server trust-
   boundary control by itself.
 - When Trusted Types is applicable, treat it as CSP-aligned defense in depth with a
@@ -180,6 +186,8 @@ tests/examples, framework config, and deployment adapters are distinguished.
 - [NestJS security](https://docs.nestjs.com/security/helmet)
 - [Next.js security headers](https://nextjs.org/docs/app/api-reference/config/next-config-js/headers)
 - [Next.js data security](https://nextjs.org/docs/app/guides/data-security)
+- [Next.js environment variables](https://nextjs.org/docs/app/guides/environment-variables)
+- [Next.js `next.config.js` `env`](https://nextjs.org/docs/pages/api-reference/config/next-config-js/env)
 - [React `dangerouslySetInnerHTML`](https://react.dev/reference/react-dom/components/common#dangerously-setting-the-inner-html)
 - [Vue `v-html` security guidance](https://vuejs.org/guide/best-practices/security.html)
 - [Angular security](https://angular.dev/best-practices/security)

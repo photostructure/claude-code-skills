@@ -17,21 +17,19 @@ When a Node process terminates TLS (`https.createServer`, `tls.createServer`,
 `http2.createSecureServer`, or a `tls.createSecureContext`), pin a modern floor and a
 vetted cipher set:
 
-- Anti-pattern: `minVersion` absent, or `secureProtocol: 'TLSv1_method'`/`'TLSv1_1_method'`/
-  `'SSLv3_method'`, or `minVersion: 'TLSv1'`/`'TLSv1.1'`, or a `secureOptions` bitmask that
-  re-enables old protocols. Fix: set `minVersion: 'TLSv1.2'` (prefer `'TLSv1.3'` where the
-  client base allows) and never lower `maxVersion` below it. RFC 8996 deprecates TLS 1.0/1.1;
-  SSLv2/SSLv3 must always be off.
-- Anti-pattern: hand-rolled `ciphers` string containing `RC4`, `3DES`/`DES-CBC3`, `EXPORT`,
-  `NULL`, `aNULL`, or `@SECLEVEL=0`. Fix: adopt a platform-recommended list — take the
-  cipher list from the Mozilla SSL Configuration Generator (intermediate profile for broad
-  reach, modern for TLS 1.3-only; the generator does not emit a Node.js profile, so apply the
-  recommended list via the `ciphers`/`minVersion` options yourself), preferring AEAD suites
-  (AES-GCM, ChaCha20-Poly1305) and forward-secret key exchange. In Node, the legacy cipher
-  specification format in `ciphers` applies only to TLS 1.2 and below; TLS 1.3 offers a small
-  fixed set of suites defined by the protocol, selectable only by their full `TLS_...` names
-  in the same `ciphers` list — verify the exact behavior against the installed Node/OpenSSL
-  version.
+- Anti-pattern: `secureProtocol: 'TLSv1_method'`/`'TLSv1_1_method'`/`'SSLv3_method'`,
+  `minVersion: 'TLSv1'`/`'TLSv1.1'`, or runtime flags that lower the effective floor.
+  Require TLS 1.2 or newer (prefer TLS 1.3 where clients permit). An absent `minVersion` is
+  a verification point, not automatically a gap: current Node defaults to TLS 1.2, but CLI
+  options can change it. Set it explicitly when policy must be invariant. RFC 8996
+  deprecates TLS 1.0/1.1; SSLv2/SSLv3 must remain disabled.
+- Anti-pattern: lowering OpenSSL's security level or adding legacy suites such as RC4,
+  3DES, EXPORT, or anonymous/NULL ciphers. Current Node documentation says its default
+  cipher suite is deliberately selected and should be changed only when necessary. Keep
+  the runtime default unless a tested policy requires customization; inspect the effective
+  list because CLI/environment options can replace it. OpenSSL's legacy cipher-list syntax
+  does not govern TLS 1.3 suites; TLS 1.3 configuration is runtime/OpenSSL-version-specific,
+  so do not paste a TLS 1.2 cipher string and claim it pins TLS 1.3.
 - Node's default `minVersion` (`tls.DEFAULT_MIN_VERSION`) and default `ciphers`
   (`tls.DEFAULT_CIPHERS`) track a sane baseline in current releases, but both are
   version-sensitive — verify the exact default against the installed Node version rather than
@@ -56,10 +54,13 @@ An HTTPS page must load every subresource over HTTPS:
 
 ## Verification and HSTS
 
-- Anti-pattern: `rejectUnauthorized: false` on any outbound `https`/`tls`/`fetch` client, a
+- Anti-pattern: `rejectUnauthorized: false` on an outbound `https`/`tls` client, a
   custom `checkServerIdentity` that returns without throwing, or the process-wide
-  `NODE_TLS_REJECT_UNAUTHORIZED=0`. This disables certificate/hostname verification and makes
-  every outbound TLS call MITM-able. Fix: keep verification on; for a genuinely private CA,
+  `NODE_TLS_REJECT_UNAUTHORIZED=0`. The per-client option affects that configured TLS
+  connection; the environment variable changes verification for Node TLS clients that
+  honor it process-wide. A no-op `checkServerIdentity` disables hostname checking but does
+  not by itself disable CA-chain validation. Keep both chain and hostname verification on;
+  for a genuinely private CA,
   pass that CA via the `ca` option (or `NODE_EXTRA_CA_CERTS`) instead of disabling checks.
   Never globally disable verification to silence a cert error.
 - Anti-pattern: `Strict-Transport-Security` sent (especially with `includeSubDomains`/
@@ -73,3 +74,4 @@ An HTTPS page must load every subresource over HTTPS:
 - [OWASP Transport Layer Security Cheat Sheet](https://cheatsheetseries.owasp.org/cheatsheets/Transport_Layer_Security_Cheat_Sheet.html)
 - [Mozilla SSL Configuration Generator](https://ssl-config.mozilla.org/)
 - [Node.js TLS/SSL documentation](https://nodejs.org/api/tls.html)
+- [RFC 8996 — Deprecating TLS 1.0 and TLS 1.1](https://www.rfc-editor.org/rfc/rfc8996.html)

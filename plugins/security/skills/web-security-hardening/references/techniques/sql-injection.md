@@ -6,7 +6,10 @@ ORMs do not make SQL injection impossible; they add "raw" escape hatches whose s
 
 ## Raw does not mean unbound
 
-The common misconception is that a "raw" API disables parameterization, so people concatenate. Wrong: the raw APIs below **still parameterize** — they accept bindings and emit a prepared statement. The vulnerability is bypassing the binding slot with string interpolation, not using the raw API at all.
+Raw APIs commonly provide a separate binding channel. Use it: some drivers send values
+out-of-band or prepare the statement, while others escape replacements before sending SQL.
+Do not claim every binding API produces a server-side prepared statement. The vulnerability
+is placing untrusted data into SQL text instead of the documented value channel.
 
 - Anti-pattern: any request value reaching a query through `` `...${x}...` ``, `'... ' + x`, or `.concat()` inside a query string.
 - Fix: keep the value in a binding placeholder; pass it through the API's parameter channel. Never build the SQL text from user data.
@@ -14,7 +17,10 @@ The common misconception is that a "raw" API disables parameterization, so peopl
 ## Knex
 
 - Anti-pattern: `knex.raw('... ' + col + ' = ' + id)`; `knex.whereRaw(\`${col} = ${id}\`)`.
-- Fix: bind through placeholders — `?` is a **value**, `??` is an **identifier**: `knex.raw('?? = ?', [col, id])`. `whereRaw` takes the same bindings: `knex.whereRaw('?? = ?', [col, id])`. Identifiers still route through the allowlist below (`??` quotes but does not validate). Verify `?`/`??` semantics against the installed Knex version.
+- Fix: bind through placeholders—`?` is a value and `??` is an identifier:
+  `knex.raw('?? = ?', [col, id])`. Identifier quoting prevents syntax breakout but does not
+  decide which columns the caller is authorized to select; map `col` through the allowlist
+  below. Verify placeholder semantics against the installed Knex version.
 
 ## Prisma
 
@@ -35,7 +41,8 @@ The common misconception is that a "raw" API disables parameterization, so peopl
 
 Table names, column names, `ORDER BY` targets, and sort direction cannot be bound as parameters in any of the above.
 
-- Anti-pattern: quote-escaping or `??`-wrapping attacker-supplied identifiers/sort fields and treating that as safe; `ORDER BY ${req.query.sort} ${req.query.dir}`.
+- Anti-pattern: interpolating attacker-supplied identifiers/sort fields, or treating quoted
+  arbitrary identifiers as sufficient authorization; `ORDER BY ${req.query.sort} ${req.query.dir}`.
 - Fix: map request input through a **fixed allowlist** to known-good literals: `const col = ({ name: 'name', created: 'created_at' })[req.query.sort] ?? 'id'` and `dir === 'desc' ? 'DESC' : 'ASC'`. Do not escape-and-pass-through; only emit values you control.
 
 See ../input-output-and-files.md for the broader database/command/template boundary and ../../ATTRIBUTION.md.

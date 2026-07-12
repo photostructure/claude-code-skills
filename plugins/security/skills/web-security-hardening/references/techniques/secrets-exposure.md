@@ -22,7 +22,8 @@ and scrapers may already hold it.
   confirm at the provider over "we deleted the line." Only after rotation is history
   scrubbing worthwhile, and only as cleanup — never as the remediation.
 - Fix: move the live value into a secret manager or protected deployment facility and
-  reference it at runtime; keep `.env*` in `.gitignore`. Do not paste the full secret
+  reference it at runtime; ignore files that contain live local secrets while retaining
+  deliberately non-secret templates such as `.env.example`. Do not paste the full secret
   into tickets, chat, or review evidence — record a variable name or short prefix only.
 
 ## Scan history and artifacts, not just HEAD
@@ -47,10 +48,7 @@ Anything so prefixed is world-readable in the shipped bundle by design — not h
 just embedded.
 
 - Anti-pattern to grep: a real secret assigned to a client-exposed name —
-  `NEXT_PUBLIC_*` (Next.js), `VITE_*` (Vite), `REACT_APP_*` (CRA), `PUBLIC_*`
-  (SvelteKit/Astro), `NX_PUBLIC_*` (Nx), `NG_APP_*` (Angular via the
-  `@ngx-env/builder` community plugin — Angular core has no built-in public
-  prefix), or `GATSBY_*` (Gatsby) — e.g.
+  `NEXT_PUBLIC_*` (Next.js) or `VITE_*` (Vite)—e.g.
   `NEXT_PUBLIC_STRIPE_SECRET`, `VITE_API_SECRET`, `VITE_AWS_SECRET_ACCESS_KEY`.
 - Next.js inlines any `NEXT_PUBLIC_`-prefixed variable into the JS sent to the browser
   at `next build` — every `process.env.NEXT_PUBLIC_*` reference is replaced with a

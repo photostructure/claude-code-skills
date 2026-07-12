@@ -50,8 +50,9 @@ Use NIST SP 800-63B-4 as the current policy baseline for centrally verified pass
 - allow password managers, autofill, paste, and a reveal-password control;
 - do not use security questions or unauthenticated password hints.
 
-Apply normalization consistently if Unicode passwords are accepted; never silently
-change an established password's representation between creation and login.
+Count Unicode code points as characters. If Unicode passwords are accepted, apply NFC
+normalization consistently before hashing and verification as NIST recommends; never
+silently change an established password's representation during an upgrade.
 
 Assess rate limiting/account throttling separately. Long passwords do not remove online
 guessing risk, and throttling must avoid turning account locking into an easy denial of
@@ -64,10 +65,13 @@ service. Prefer progressive delay/risk signals and secure recovery over permanen
 - Prefer Argon2id. Current OWASP minimum guidance includes `m=19 MiB`, `t=2`, `p=1`;
   benchmark and raise cost as practical for the deployment.
 - If Argon2id is unavailable, follow current OWASP scrypt guidance. Use bcrypt only for
-  legacy compatibility, with cost 10+ and explicit handling of its 72-byte input limit.
+  legacy compatibility, with cost 10+ and a vetted migration/pre-hashing design for its
+  72-byte input limit; never silently truncate a longer password.
 - For FIPS-driven environments, use current approved PBKDF2 parameters and HMAC variant.
 - Let maintained libraries generate unique salts. A pepper is optional defense-in-depth
-  and belongs in a secrets manager, separate from the password database.
+  under OWASP guidance; NIST SP 800-63B-4 recommends an additional keyed operation for
+  verifiers. If used or required, keep the key separate from the password database in a
+  protected secret/key facility and plan rotation.
 - Store algorithm/parameters with the hash and rehash after successful login when policy
   increases.
 - Bound password input length high enough for passphrases but low enough to prevent
@@ -98,6 +102,9 @@ Verify installed library defaults rather than recognizing an algorithm name alon
 
 ## MFA and passkeys
 
+- Under `v5.0.0-6.3.3`, ASVS Level 2 requires MFA and Level 3 adds stronger hardware-
+  based authentication requirements. For a tailored non-conformance review, prioritize
+  factor strength from the application's risk instead.
 - Prefer phishing-resistant authenticators (passkeys/WebAuthn/security keys) for
   privileged/high-risk users and offer them broadly when feasible.
 - Do not weaken the account through recovery: recovery codes, help-desk reset, remembered
@@ -157,8 +164,9 @@ Cookie attributes and CSRF are covered in `browser-and-http.md`.
 - Keep access tokens distinct from ID tokens, refresh tokens, reset tokens, and session
   cookies; reject cross-use.
 - Keep claims minimal and non-secret; signed JWT payloads are normally readable.
-- Use short-lived access tokens and protected, rotating refresh tokens with reuse
-  detection where feasible.
+- Use short-lived, audience-restricted access tokens. For OAuth public clients, sender-
+  constrain refresh tokens or rotate them with replay detection; RFC 9700 requires one
+  of these protections. Bind refresh tokens to the consented scope and resource servers.
 - Define revocation for logout, account disablement, compromise, and privilege changes;
   document the accepted propagation window for self-contained tokens.
 - Never place bearer tokens in URLs. Redact them from logs/errors/traces.
@@ -167,15 +175,20 @@ Cookie attributes and CSRF are covered in `browser-and-http.md`.
 
 ## OAuth and OIDC
 
-- Use maintained protocol libraries and exact registered redirect URIs.
-- Bind authorization requests to the initiating browser with unguessable session-bound
-  `state`; use and validate OIDC `nonce` for ID-token replay protection.
+- Use maintained protocol libraries. Authorization servers must compare registered
+  redirect URIs by exact string, except the native-app localhost port exception.
+- Prevent callback CSRF with a transaction-bound mechanism: verified PKCE may provide
+  this protection, OIDC `nonce` provides it in OIDC flows, and otherwise use a one-time
+  `state` value securely bound to the user agent. Do not treat `state` alone as code-
+  injection protection.
 - Validate signature, issuer, audience, expiration, and token type before trusting claims.
 - Key accounts by immutable `(issuer, subject)` rather than email alone.
 - Require strict `email_verified === true` before any email-based decision; do not
   silently auto-link an existing local account solely by matching email.
-- Use PKCE for public clients and wherever the concrete flow benefits; do not label its
-  absence a vulnerability without applicable attack preconditions.
+- Public clients must use PKCE; confidential clients should use it. Use `S256`, bind the
+  verifier/challenge to the transaction and user agent, and reject downgrade. A
+  confidential OIDC client may instead use a correctly validated transaction-bound
+  `nonce` for code-injection protection under RFC 9700's stated conditions.
 - Keep client secrets and tokens out of browser bundles, URLs, logs, and analytics.
 - Protect dynamic registration, discovery configuration, setup wizards, and provider
   changes as privileged administration.
@@ -185,17 +198,22 @@ Cookie attributes and CSRF are covered in `browser-and-http.md`.
 Applies when the application itself encrypts, signs, or MACs data (fields, files, tokens,
 cookies) rather than delegating confidentiality to TLS, the database, or an IdP.
 
-- Use a vetted authenticated-encryption (AEAD) primitive—AES-256-GCM or
-  XChaCha20-Poly1305 via Node `crypto`, WebCrypto, or libsodium—never a hand-rolled
-  construction. Do not use ECB; it leaks plaintext structure.
-- Generate a unique per-message IV/nonce from a CSPRNG and never reuse a nonce under one
-  key. GCM/CTR nonce reuse enables keystream recovery and message forgery.
+- Use a vetted authenticated-encryption (AEAD) primitive—for example AES-GCM with a
+  supported key size (at least 128 bits) through Node `crypto`/WebCrypto, or
+  XChaCha20-Poly1305 through libsodium—never a hand-rolled construction. Do not use ECB;
+  it leaks plaintext structure.
+- Meet the selected scheme's per-key IV/nonce requirements. Random nonces must come from
+  a CSPRNG; counter-based constructions need crash-safe uniqueness. Never reuse a
+  GCM/CTR nonce under one key because reuse can expose plaintext and break authenticity.
 - Require an authentication tag (AEAD) or a verified MAC (encrypt-then-MAC) so tampering
   is detected; bind associated data (AAD) when surrounding context must be authenticated.
-- Source every key, IV, salt, and security token from a CSPRNG (`crypto.randomBytes`,
-  `crypto.randomUUID`, or WebCrypto `getRandomValues`), never `Math.random()`.
-- Avoid broken primitives: no MD5/SHA-1 for signatures or integrity, no DES/3DES/RC4 for
-  encryption. Separate keys by purpose and manage their lifecycle as secrets (below).
+- Generate random keys, salts, tokens, and random IVs/nonces with an appropriate CSPRNG
+  (`crypto.randomBytes`, WebCrypto `getRandomValues`, or a maintained library); derive
+  keys only with a suitable KDF. Never use `Math.random()` for security material.
+- Avoid MD5 and SHA-1 for signatures or other collision-sensitive designs and avoid
+  DES/3DES/RC4 for encryption. Assess protocol-mandated legacy MAC use separately rather
+  than claiming every SHA-1 use has identical properties. Separate keys by purpose and
+  manage their lifecycle as secrets (below).
 
 ## Secret lifecycle
 
@@ -229,3 +247,6 @@ recognizable prefix/suffix. Never test a suspected credential against a live ser
 - [OWASP Secrets Management Cheat Sheet](https://cheatsheetseries.owasp.org/cheatsheets/Secrets_Management_Cheat_Sheet.html)
 - [OWASP OAuth 2.0 Cheat Sheet](https://cheatsheetseries.owasp.org/cheatsheets/OAuth2_Cheat_Sheet.html)
 - [OWASP Cryptographic Storage Cheat Sheet](https://cheatsheetseries.owasp.org/cheatsheets/Cryptographic_Storage_Cheat_Sheet.html)
+- [RFC 9700: OAuth 2.0 Security Best Current Practice](https://www.rfc-editor.org/rfc/rfc9700.html)
+- [Node.js `crypto` documentation](https://nodejs.org/api/crypto.html)
+- [libsodium XChaCha20-Poly1305](https://doc.libsodium.org/secret-key_cryptography/aead/chacha20-poly1305/xchacha20-poly1305_construction)

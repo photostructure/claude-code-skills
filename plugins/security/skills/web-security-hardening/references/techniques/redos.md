@@ -13,13 +13,15 @@ deserialization) and `../deployment-and-operations.md` (timeouts, resource limit
   literals and dynamic `new RegExp(...)` for a repetition inside a repeated group
   (`(a+)+`, `(a*)*`, `([a-zA-Z]+)*`, `(.*a){10,}`), overlapping alternation under a
   quantifier (`(a|aa)+`, `(a|a?)+`, `(\d+|\w+)*`), and adjacent unbounded quantifiers
-  (`\s+.*$`, `.*.*=.*`). A run of matching characters followed by one non-matching
-  character forces exponential path exploration.
+  (`\s+.*$`, `.*.*=.*`). Depending on the expression, a near-match can cause polynomial
+  or exponential backtracking; confirm with analysis rather than classifying every example
+  as exponential.
 - Fix: rewrite to remove ambiguity — make inner quantifiers possessive/atomic where the
   engine supports it, replace overlapping alternatives with a single character class,
-  and anchor both ends so the engine cannot re-seed the match. Add a unit test that feeds
-  a long adversarial string (e.g. `"a".repeat(50_000) + "!"`) and asserts the match
-  returns promptly. Node's built-in `RegExp` has no per-match timeout — verify against
+  and anchor both ends where full-string matching is intended. Test suspected expressions
+  in an isolated worker/process with a strict external timeout and gradually increasing
+  input; do not paste a potentially catastrophic 50,000-character case into the main test
+  process. Node's built-in `RegExp` has no per-match timeout — verify against
   the installed Node version rather than assuming one exists.
 
 ## Bound the input and the engine
@@ -27,17 +29,16 @@ deserialization) and `../deployment-and-operations.md` (timeouts, resource limit
 - Anti-pattern: matching an unbounded body/query/header value directly, e.g.
   `pattern.test(req.body.field)` or `str.match(userPattern)` with no length guard.
 - Fix: cap length before matching (reject or truncate to a documented maximum via schema
-  `maxLength`) so worst-case work stays bounded. For any attacker-influenced pattern or
-  input, run it on a linear-time engine: `node-re2` (`import { RE2 } from "re2"`, or
-  `const RE2 = require("re2")`) is a drop-in for the `RegExp` API
-  (`test`/`exec`/`match`/`replace`) and cannot backtrack. RE2 rejects features that need
-  exponential time — backreferences (`\1`) and lookaround (`(?=)`, `(?!)`) — and throws
-  `SyntaxError` on them. Standard Unicode property escapes (`\p{...}`) are supported; only
-  the `v`-flag "properties of strings" (e.g. `\p{Basic_Emoji}`) are not. Verify your
-  patterns compile under the installed `re2` version and keep a native `RegExp` fallback
-  only for trusted, backtracking-free patterns.
+  `maxLength`) so worst-case work stays bounded. When the pattern is attacker-controlled or
+  analysis cannot establish an acceptable bound, use a linear-time engine such as `node-re2`
+  (`const RE2 = require("re2")`); it exposes a RegExp-like API backed by RE2's linear-time
+  engine. The named ESM export requires `re2` 1.24.0 or newer, so version-gate that import.
+  RE2 is not fully syntax- or behavior-compatible with JavaScript `RegExp` and rejects
+  features such as backreferences and lookaround. Compile and behavior-test every migrated
+  pattern against the installed binding; do not silently fall back to native `RegExp` for
+  attacker-controlled patterns.
 
-## Never compile untrusted patterns; audit dependencies
+## Keep untrusted patterns out of backtracking engines; audit dependencies
 
 - Anti-pattern: `new RegExp(userInput)` or `new RegExp(\`^${userInput}$\`)` — the user
   controls the program the engine runs, so they can supply their own evil regex. Also

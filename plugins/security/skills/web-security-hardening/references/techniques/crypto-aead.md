@@ -10,25 +10,41 @@ Confidentiality without integrity is exploitable (bit-flipping, padding oracles)
 
 - Anti-pattern: `aes-256-cbc`, `aes-256-ctr`, or any `-cbc`/`-ctr` string with no separate MAC; `createCipher(` (the keyless, password-derived, deprecated form).
 - Anti-pattern: `aes-256-ecb` / any `-ecb` mode — ECB encrypts identical plaintext blocks to identical ciphertext and leaks structure. Never acceptable for data.
-- Fix: use an AEAD mode — Node `crypto.createCipheriv('aes-256-gcm', key, iv)`, WebCrypto `subtle.encrypt({ name: 'AES-GCM', iv }, key, data)`, or libsodium `crypto_aead_xchacha20poly1305_ietf_encrypt(...)`.
-- Fix (only if a non-AEAD mode is mandated): encrypt-then-MAC with an independent key (e.g. HMAC-SHA-256 over the ciphertext), and verify the MAC in constant time before decrypting.
+- Fix: use an AEAD mode—AES-GCM is available in Node and WebCrypto; XChaCha20-Poly1305
+  is available through libsodium, not Node's built-in `crypto` or WebCrypto. Use the exact
+  key, nonce, tag-length, and API requirements documented for the selected library.
+- If interoperability mandates a non-AEAD mode, use a reviewed encrypt-then-MAC
+  construction with independent keys and authenticate an unambiguous encoding of the
+  algorithm/version, IV, associated metadata, and ciphertext. Do not invent a format from
+  the shorthand “HMAC the ciphertext.”
 
 ## AES-256-GCM: never reuse a nonce under one key
 
-GCM nonce reuse under the same key recovers the keystream (XOR of the two plaintexts) and enables forgery of the authentication tag. This is the single most common fatal bug in application GCM code.
+GCM nonce reuse under the same key repeats the keystream: XORing the ciphertexts reveals
+the XOR of the plaintexts, known plaintext can reveal the other message, and authentication
+forgeries become possible.
 
 - Anti-pattern: a fixed/constant IV (`Buffer.alloc(12)`, a hardcoded literal, an IV derived from a counter that resets, or an IV reused across messages); an IV shorter/longer than 12 bytes without deliberate reason.
-- Anti-pattern: storing only the ciphertext and discarding the auth tag, or never calling `getAuthTag()` / `setAuthTag()` (unauthenticated decryption silently accepts tampered input).
-- Fix: generate a fresh 12-byte (96-bit) IV per message with `crypto.randomBytes(12)`; NIST SP 800-38D recommends restricting GCM IVs to 96 bits for efficiency and interoperability (other lengths are permitted but get hashed internally). Persist `iv || authTag || ciphertext` together.
-- Fix: on encrypt call `cipher.getAuthTag()` after `cipher.final()`; on decrypt call `decipher.setAuthTag(tag)` before `decipher.final()`. A wrong/absent tag must make `final()` throw and abort — do not swallow it.
-- Note: GCM's 96-bit nonce space makes random-nonce collisions non-negligible past very high message volumes under one key; for high-volume or long-lived keys prefer XChaCha20-Poly1305 (192-bit nonce, `crypto_aead_xchacha20poly1305_ietf_NPUBBYTES` = 24) whose extended nonce makes random nonces safe, or rotate keys. Verify constant names/nonce lengths against the installed Node/libsodium version.
+- Anti-pattern: discarding the authentication tag or failing to provide it during
+  decryption. Current Node GCM decryption fails authentication at `final()`; verify the
+  failure path and never use plaintext returned by `update()` before successful `final()`.
+- Fix: generate a fresh 12-byte (96-bit) IV per message with `crypto.randomBytes(12)`; NIST SP 800-38D recommends restricting GCM IVs to 96 bits for efficiency and interoperability (other lengths are permitted but get hashed internally). Store the IV, tag, ciphertext, algorithm/version, and any AAD contract in an unambiguous format.
+- Fix: obtain and store the tag after encryption; provide the tag before finalizing
+  decryption and treat any authentication failure as a hard failure. Set and validate the
+  intended tag length explicitly where the Node version/API requires it.
+- Enforce the construction's per-key invocation limits. For high-volume or long-lived keys,
+  use a correctly persisted counter strategy, rotate keys before the applicable GCM limit,
+  or use libsodium XChaCha20-Poly1305 with its documented 192-bit random nonce. Verify
+  constants and limits against the installed implementation.
 
 ## Randomness: CSPRNG for every key, IV, salt, and token
 
 Any key, IV/nonce, salt, or unguessable token derived from a non-cryptographic RNG is predictable and defeats the cipher.
 
 - Anti-pattern: `Math.random()`, `Date.now()`, `process.hrtime()`, PID, or an incrementing counter used to produce a key, IV, salt, session id, reset token, or API key.
-- Fix: Node `crypto.randomBytes(n)` (or `crypto.randomFillSync`), `crypto.randomUUID()` for opaque ids; browser/WebCrypto `crypto.getRandomValues(new Uint8Array(n))`. Never `Math.random()` for anything security-relevant.
+- Fix: use Node `crypto.randomBytes(n)`/`randomFillSync`, WebCrypto
+  `crypto.getRandomValues`, or the construction's documented generator. Size output for
+  its purpose; do not substitute `Math.random()`.
 
 ## Avoid broken primitives
 
@@ -44,3 +60,4 @@ Password hashing (Argon2/bcrypt/scrypt) and key derivation are a separate concer
 - [OWASP Cryptographic Storage Cheat Sheet](https://cheatsheetseries.owasp.org/cheatsheets/Cryptographic_Storage_Cheat_Sheet.html)
 - [Node.js crypto — Cipher / createCipheriv / randomBytes](https://nodejs.org/api/crypto.html)
 - [libsodium — XChaCha20-Poly1305 construction](https://doc.libsodium.org/secret-key_cryptography/aead/chacha20-poly1305/xchacha20-poly1305_construction)
+- [NIST SP 800-38D — GCM](https://csrc.nist.gov/pubs/sp/800/38/d/final)

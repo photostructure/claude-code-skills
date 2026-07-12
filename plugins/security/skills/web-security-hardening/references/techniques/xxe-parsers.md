@@ -16,30 +16,38 @@ Grep the imports, then confirm the option semantics of the pinned version.
   entities, and `processEntities` (default `true`) applies expansion limits. Anti-pattern:
   relying on it for entity expansion of untrusted XML. Fix: pass `processEntities: false`
   for untrusted input. Verify against the installed version — entity handling and limits
-  have changed across 4.x/5.x (e.g. CVE-2026-25896 encoding-bypass).
-- **xml2js**, **sax**: do not resolve external entities; internal-only. Grep confirms the
-  parser, but do not mark "safe" without checking the pinned version's changelog.
+  have changed across 4.x/5.x; use the pinned package's entity documentation and current
+  advisories rather than a version-independent claim.
+- For **xml2js**, **sax**, and wrappers, verify the pinned parser and configuration rather
+  than inheriting a blanket “safe” label from the package name; wrappers may preprocess or
+  hand data to another parser.
 - **libxmljs / libxmljs2** (`parseXml`, `parseXmlString`; also transitively via
-  `xml2json`): WILL fetch and expand external entities — file read and SSRF — when
-  `noent: true` is set. Anti-pattern: `parseXml(untrusted, { noent: true })` or any
-  DTD-loading option on attacker-controlled XML. Fix below.
+  wrappers): `noent: true` enables entity substitution and can load external entities
+  according to the bundled libxml2 loader/options. Anti-pattern:
+  `parseXml(untrusted, { noent: true })` or a DTD-loading option on attacker-controlled
+  XML. Fix below.
 
 ## libxmljs / libxmljs2 hardening
 
-Anti-pattern (greppable): `noent: true`, `dtdload: true`, `dtdvalid: true`, or a missing/
-default options object on request-derived XML.
+Anti-pattern (greppable): entity replacement or DTD loading/validation on request-derived
+XML. Check both library aliases and underlying flags: `replaceEntities: true` / `noent:
+true`, `validateEntities: true` / `dtdvalid: true`, `validateAttributes: true` / `dtdattr:
+true`, and direct `XML_PARSE_DTDLOAD` / `XML_PARSE_DTDATTR`. `DTDATTR` implies DTD loading.
+Missing options are a verification question, not automatically a gap; check the pinned
+binding's defaults and option mapping.
 
-- Parse with `{ noent: false, dtdload: false, nonet: true }` (and `dtdvalid: false`) so
-  entities are not substituted, external DTDs are not loaded, and the parser makes no
-  network requests even if another flag re-enables entities.
-- Reject or hard-limit `<!DOCTYPE` in untrusted payloads before parsing; treat any DOCTYPE
-  in an upload/webhook body as suspicious.
-- `nonet: true` blocks the network leg only: `XML_PARSE_NONET` forbids `http://`/`ftp://`
-  fetches (SSRF, remote-DTD retrieval, out-of-band exfil) but does NOT stop `file://`
-  local reads — it gates network protocols, not the filesystem. The load-bearing control
-  against local file read is `noent: false` plus rejecting DOCTYPE; keep `nonet: true` as
-  defense-in-depth for the network paths. Verify these option names/defaults against the
-  installed libxmljs version.
+- Keep entity replacement and DTD load/validation options false. Determine the libxml2
+  version bundled by the Node binding, not the system CLI version. If the binding exposes
+  libxml2 2.13+'s `XML_PARSE_NO_XXE`, prefer it; otherwise reject DOCTYPE/external
+  identifiers and prevent resource loading through the binding's documented resolver
+  controls.
+- Reject DOCTYPE when the input contract does not require it, but do not rely on a raw-byte
+  substring scan as the primary control; decoding and parser behavior are authoritative.
+- Version-gate `nonet: true`. In older libxml2 it disables the built-in HTTP/FTP clients
+  but not local-file reads. Libxml2 2.15 removed its last built-in network client, so
+  `XML_PARSE_NONET` then has no effect except being passed to custom resource loaders.
+  It is therefore only defense-in-depth, never the load-bearing XXE control. Verify the
+  binding's option mapping, bundled libxml2, and any custom loader.
 
 ## Real ingestion vectors
 
@@ -54,10 +62,10 @@ webhook boundary (see ../input-output-and-files.md) to whichever XML parser cons
 
 ## Impact
 
-XXE via a fetching parser yields SSRF (internal `http://`, cloud metadata) and local file
-read (`file:///etc/passwd`, app secrets), plus DoS via entity expansion. `nonet` shuts the
-network paths (SSRF and out-of-band exfil of read data) but not the local `file://` read
-itself — stop that with `noent: false` and DOCTYPE rejection. See ../input-output-and-files.md
+XXE via a fetching parser can yield SSRF, local-file disclosure, and entity-expansion DoS.
+Prevent external resource loading and entity substitution with controls supported by the
+binding's bundled parser; `nonet` alone is not sufficient and is ineffective against local
+files (and largely inert in libxml2 2.15+). See ../input-output-and-files.md
 for the SSRF egress-allowlist and upload-validation controls that compound this defense.
 
 ## Primary sources
@@ -65,4 +73,4 @@ for the SSRF egress-allowlist and upload-validation controls that compound this 
 - [OWASP XML External Entity Prevention Cheat Sheet](https://cheatsheetseries.owasp.org/cheatsheets/XML_External_Entity_Prevention_Cheat_Sheet.html)
 - [fast-xml-parser — Entities docs](https://github.com/NaturalIntelligence/fast-xml-parser/blob/master/docs/v4%2C%20v5/5.Entities.md)
 - [libxmljs](https://github.com/libxmljs/libxmljs)
-- [libxml2 parser options (`XML_PARSE_NONET` — "Forbid network access")](https://gnome.pages.gitlab.gnome.org/libxml2/devhelp/libxml2-parser.html)
+- [libxml2 `parser.h` options (`XML_PARSE_NO_XXE`, `XML_PARSE_NONET`)](https://gnome.pages.gitlab.gnome.org/libxml2/html/parser_8h.html)

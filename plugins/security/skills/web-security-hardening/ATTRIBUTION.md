@@ -30,9 +30,9 @@ version-sensitive behavior; the surrounding expression is original. In particula
 - Redis, LevelDB, database, container, and platform documentation inform deployment
   checks without treating every missing defense-in-depth setting as a vulnerability.
 - The `references/techniques/` cards synthesize official framework, library, and vendor
-  documentation and public CVE advisories alongside OWASP guidance. Version-sensitive and
-  drift-prone claims were checked against primary sources; facts, API names, and CVE
-  details are not copyrightable and the surrounding expression is original.
+  documentation and public CVE advisories alongside OWASP guidance. Version-sensitive
+  details are linked to primary sources so reviewers can re-check them against the
+  installed version; only the facts needed to explain the control are summarized.
 
 ## Licensing
 

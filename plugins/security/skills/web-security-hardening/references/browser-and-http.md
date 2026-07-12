@@ -68,7 +68,8 @@ Baseline considerations:
 
 Roll out complex policy safely:
 
-1. deploy `Content-Security-Policy-Report-Only`;
+1. test the candidate with `Content-Security-Policy-Report-Only`, retaining any existing
+   enforced policy while evaluating a stricter replacement;
 2. collect and deduplicate violations without logging sensitive page data;
 3. remove inline/eval patterns and narrow required sources;
 4. enforce the policy;
@@ -91,6 +92,8 @@ For authentication/session cookies, assess:
 - explicit `SameSite=Strict` or `Lax` for same-site sessions; `None` only with `Secure`
   and a proven cross-site requirement;
 - narrow `Domain` and `Path`; omit `Domain` where host-only scope is intended;
+- treat `Path` as delivery scoping, not an authorization boundary between same-origin
+  applications;
 - `__Host-` prefix where compatible (`Secure`, no `Domain`, `Path=/`);
 - session identifiers are opaque, random, rotated after login/privilege change, and
   invalidated server-side at logout/expiry;
@@ -111,7 +114,8 @@ For every state-changing route reachable with such credentials:
 - verify `Origin`/`Referer` or Fetch Metadata as an additional/fallback boundary;
 - treat `SameSite` as defense-in-depth unless the narrow conditions for relying on it
   alone are documented and satisfied;
-- never mutate state through GET/HEAD/OPTIONS;
+- never assign requested state-changing semantics to HTTP safe methods (GET, HEAD,
+  OPTIONS, or TRACE);
 - require reauthentication/user confirmation for especially sensitive changes;
 - ensure CORS does not turn a custom-header CSRF design into a permissive cross-origin API.
 
@@ -136,7 +140,8 @@ CORS relaxes the browser same-origin policy; it is not authentication.
 - Never combine reflected arbitrary origins with `Access-Control-Allow-Credentials: true`.
 - Validate the complete parsed origin (scheme, host, port); avoid substring/suffix regexes.
 - Keep allowed methods and headers minimal and cache preflights deliberately.
-- Include `Vary: Origin` when responses change by request origin and may be cached.
+- Include `Vary: Origin` when the response uses a specific origin selected dynamically
+  from the request, so caches do not reuse it for another origin.
 - Public read-only APIs may intentionally use `*`; document that data is public and
   credentials are not accepted.
 - Test `null` origins and trusted-subdomain assumptions where relevant.
@@ -180,3 +185,6 @@ normally defense-in-depth, not an Essential gap.
 - [OWASP Content Security Policy Cheat Sheet](https://cheatsheetseries.owasp.org/cheatsheets/Content_Security_Policy_Cheat_Sheet.html)
 - [OWASP CSRF Prevention Cheat Sheet](https://cheatsheetseries.owasp.org/cheatsheets/Cross-Site_Request_Forgery_Prevention_Cheat_Sheet.html)
 - [OWASP Session Management Cheat Sheet](https://cheatsheetseries.owasp.org/cheatsheets/Session_Management_Cheat_Sheet.html)
+- [MDN `Set-Cookie`](https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Headers/Set-Cookie)
+- [MDN CORS guide](https://developer.mozilla.org/en-US/docs/Web/HTTP/Guides/CORS)
+- [RFC 9110 safe methods](https://www.rfc-editor.org/rfc/rfc9110.html#section-9.2.1)

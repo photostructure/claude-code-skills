@@ -6,37 +6,35 @@ Verify security response headers by what routes actually emit, not by the presen
 
 ## Credit only headers that reach the route
 
-Helmet (8.x) sets ~13 response headers by default: it adds a dozen (CSP,
-Cross-Origin-Opener-Policy, Cross-Origin-Resource-Policy, Origin-Agent-Cluster,
-Referrer-Policy, Strict-Transport-Security, X-Content-Type-Options, X-DNS-Prefetch-Control,
-X-Download-Options, X-Frame-Options, X-Permitted-Cross-Domain-Policies, X-XSS-Protection)
-and strips X-Powered-By. Cross-Origin-Embedder-Policy is off by default. Confirm the count
-and set against the installed version—defaults shift across majors.
+Helmet's default header set changes across releases. Inspect the installed version and
+effective production response instead of relying on a copied count or list; some controls,
+including cross-origin isolation, require application-specific opt-in.
 
 - Anti-pattern: `app.use(helmet())` mounted after routers, inside one sub-router, behind a
   `static`/proxy handler that returns first, or on an app the CDN/edge answers instead of.
   A `helmet()` call in `app.js` is not proof any given response carries the header.
 - Fix: mount `helmet()` before route handlers on every app/router that serves responses,
-  then confirm on the wire (`curl -sI <route>`)—credit a header only on routes where it
-  actually appears, including error and asset routes.
+  then confirm with a safe local/integration request using the relevant method—credit a
+  header only on routes where it actually appears, including applicable error and asset
+  responses. Do not probe a production service merely to complete a static review.
 
 ## Configure CSP explicitly
 
-- Anti-pattern: `helmet()` or `helmet.contentSecurityPolicy()` with no `directives`,
-  relying on the terse built-in default; or a CSP string carrying `'unsafe-inline'` /
-  `'unsafe-eval'` in `script-src`. Helmet's default `style-src` already includes
-  `'unsafe-inline'`—verify the current default directives against the installed version.
+- Review Helmet's default CSP against the application's actual scripts, styles, frames,
+  workers, and outbound connections. A default policy is not automatically a gap; the gap
+  is a policy that is ineffective, bypassed, or incompatible enough that operators disable
+  it. Treat `'unsafe-inline'`/`'unsafe-eval'` in `script-src` as high-risk exceptions.
 - Fix: pass an explicit `directives` object (`default-src 'self'`, `object-src 'none'`,
   `base-uri 'self'`, `frame-ancestors 'self'`, tight `script-src`). Prefer nonces/hashes
   over `'unsafe-inline'`. See ../browser-and-http.md for CSP transport/report wiring.
 
 ## Disable a header only with a documented reason
 
-- Anti-pattern: `helmet({ contentSecurityPolicy: false })`,
-  `crossOriginResourcePolicy: false`, or `hsts: false` with no comment—usually pasted to
-  silence a broken asset load, then forgotten.
-- Fix: keep the header on; scope the exception (route-specific middleware, a relaxed
-  directive) and comment why. A blanket `false` disables the control app-wide.
+- Review `helmet({ contentSecurityPolicy: false })`, `crossOriginResourcePolicy: false`,
+  or `hsts: false` in context. Disabling an inapplicable header is legitimate; disabling an
+  applicable control merely to silence a deployment/asset failure is a gap.
+- Scope necessary exceptions, document the compatibility or ownership reason, and verify
+  the effective response. A blanket `false` affects the whole middleware mount.
 
 ## Prefer CSP frame-ancestors; keep X-Frame-Options for legacy
 
@@ -46,22 +44,22 @@ SHOULD be enforced and XFO SHOULD be ignored (MDN itself only calls `frame-ances
 "more comprehensive" option, and marks only XFO's `ALLOW-FROM` directive obsolete—not the
 header as a whole). XFO has no allowlist-of-multiple-origins expressivity.
 
-- Anti-pattern: framing policy expressed only via `X-Frame-Options` (e.g.
-  `helmet.frameguard(...)` / `xFrameOptions`) with no `frame-ancestors` in the CSP, or the
-  two disagreeing (`XFO: SAMEORIGIN` vs `frame-ancestors 'none'`).
-- Fix: set `frame-ancestors` as the primary control; retain `X-Frame-Options: DENY`/
+- If the application already sends CSP, include `frame-ancestors` and keep it consistent
+  with XFO. XFO alone can still be an effective legacy-compatible framing control; treat
+  adding CSP as a recommended improvement rather than declaring XFO-only universally a gap.
+- Prefer `frame-ancestors` as the primary control; retain `X-Frame-Options: DENY`/
   `SAMEORIGIN` (Helmet default is `SAMEORIGIN`) as the legacy fallback and keep the two
   consistent.
 
-## Do not double-emit at CDN and app
+## Avoid conflicting edge and app policies
 
-- Anti-pattern: HSTS, CSP, or X-Frame-Options set both at the edge/CDN/reverse proxy and by
-  Helmet, so a response carries duplicate or conflicting values—`curl -sI` shows the header
-  twice, or a weak edge value shadows the strict app value (override precedence varies by
-  proxy).
-- Fix: own each header in exactly one layer. If the edge is authoritative, disable the
-  matching Helmet middleware there; otherwise ensure the edge passes the app value through
-  unmodified. Verify the final on-the-wire value, not the intent.
+- Review HSTS, CSP, or X-Frame-Options set at both the edge and application. Duplicate and
+  conflicting fields have header-specific semantics and can produce surprising effective
+  policy; do not assume the edge or application simply wins.
+- Fix: document which layer is authoritative and avoid conflicting duplicates. Multiple
+  CSP fields are jointly enforced rather than simply “last one wins,” while other headers
+  have different combination rules; do not assume generic proxy precedence. Verify the
+  final on-the-wire fields and browser semantics.
 
 ## Primary sources
 

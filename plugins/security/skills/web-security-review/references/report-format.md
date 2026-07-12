@@ -23,20 +23,39 @@ findings grouped by vulnerability class, patches proposed but never auto-applied
 **Scope:** <files / diff / path scanned>
 **Overall risk:** Critical / High / Medium / Low / Clean
 
+If deployment configuration was in scope, add a separate table so hardening findings
+are not mixed into application-vulnerability counts:
+
+### Deployment Hardening Summary
+| Deployment Risk | Count |
+|-----------------|-------|
+| Critical        | 0     |
+| High            | 0     |
+| Medium          | 0     |
+| Low             | 0     |
+
 ### Findings
 
-#### [SQLI-001] SQL Injection — `src/routes/users.ts:42` (Critical)
-- **Proof (source → sink):** `req.query.id` → `db.query(\`… ${id}\`)`, unparameterized
-  and unreachable by any validation on the route. Repro: `?id=1 OR 1=1`.
+#### SQL Injection
+
+##### [SQLI-001] SQL Injection — `src/routes/users.ts:42` (High)
+- **Proof (source → sink):** `req.query.id` → `pgClient.query(\`… ${id}\`)`, unparameterized
+  with no validation on the reachable route. An input equivalent to `1 OR 1=1` changes
+  the query predicate; this is static proof, not an instruction to test a live target.
 - **Issue:** User-controlled `id` is interpolated into a raw SQL string.
-- **Impact:** Attacker reads/modifies arbitrary rows, e.g. `id=1 OR 1=1`.
+- **Impact:** The shown `SELECT` can disclose rows outside the requested identifier;
+  establish driver multi-statement behavior and DB-role privileges before claiming
+  modification or broader compromise.
 - **Evidence:**
   ```ts
-  const rows = await db.query(`SELECT * FROM users WHERE id = ${req.query.id}`);
+  const rows = await pgClient.query(`SELECT * FROM users WHERE id = ${req.query.id}`);
   ```
-- **Fix:** Use a parameterized query.
+- **Fix:** Use the target driver's parameter syntax; for node-postgres:
   ```ts
-  const rows = await db.query("SELECT * FROM users WHERE id = ?", [req.query.id]);
+  const rows = await pgClient.query(
+    "SELECT * FROM users WHERE id = $1",
+    [req.query.id],
+  );
   ```
 
 ### Needs Verification
@@ -55,7 +74,8 @@ applying — nothing has been changed.**
 
 ## Rules
 
-- Lead with the summary table; group findings by class, not by file.
+- Lead with the summary table; group findings by class, not by file. Keep deployment
+  findings and their counts in a separate deployment section when that pass ran.
 - Every finding: `file:line`, an evidence snippet, its **proof** (using the applicable
   data-flow, exposure, or configuration shape), a plain-English attacker scenario, and
   a concrete fix. No confidence scores — if it's reported, it's proven; if it's a lead,

@@ -46,7 +46,9 @@ non-container deployment, and a private service is not automatically internet-re
   agent defaults, `NODE_TLS_REJECT_UNAUTHORIZED=0`) outside tightly bounded local tests.
 - Configure Express/Nest/other proxy trust to exact known proxy hops/subnets. A blanket
   `trust proxy=true` can make client-supplied forwarded headers authoritative.
-- Require the edge proxy to overwrite inbound `Forwarded`/`X-Forwarded-*` headers.
+- Ensure the edge proxy removes or overwrites untrusted `Forwarded`/`X-Forwarded-*`
+  values, or otherwise constructs a trusted chain that exactly matches the application's
+  proxy-trust algorithm.
 - Build password-reset links, OAuth redirects, canonical URLs, and cookie security from
   trusted public-origin configuration—not request Host headers.
 - Apply HSTS only after reliable HTTPS is established for every included host; treat
@@ -73,9 +75,10 @@ non-container deployment, and a private service is not automatically internet-re
 
 - Rate-limit expensive, enumerable, and unauthenticated operations—search, export/report
   generation, bulk or fan-out actions, media/file processing, outbound fetches, and object
-  enumeration—not only login. Back the limiter with a shared store so limits hold across
-  instances, key on client IP plus authenticated principal, and return `429` with
-  `Retry-After`.
+  enumeration—not only login. Choose keys from the abuse model (for example account,
+  credential, source network, device, or resource), accounting for shared IPs and attacker-
+  controlled headers. Use an edge or shared store when limits must span instances. Return
+  `429`; include `Retry-After` when the server can give useful retry guidance.
 - Require server-enforced pagination and a maximum page size on any attacker-influenced
   result set (SQL `LIMIT`/keyset, document-store `limit()`, Level range bounds), plus
   query/statement timeouts. For GraphQL, enforce depth, breadth, and cost/complexity limits.
@@ -179,8 +182,9 @@ do not call either an exploitable vulnerability by itself.
   example, or development fallbacks.
 - Separate development/test/production configuration and prevent test bypasses from
   activating through an ordinary client-controlled setting.
-- Keep `.env*` and local credentials out of source, build context, static assets, and
-  container layers. Treat example files as non-secret and unmistakably placeholders.
+- Keep secret-bearing `.env` files and local credentials out of source, build context,
+  static assets, and container layers. Keep committed example files non-secret and make
+  every value an unmistakable placeholder.
 - Validate security-critical configuration on startup (public URL, cookie/TLS mode,
   trusted proxies, key lengths, storage paths, allowed origins).
 - Restrict configuration/admin changes and audit them without values.
@@ -272,3 +276,4 @@ Use `identity-sessions-and-secrets.md` for lifecycle/rotation requirements.
 - [LevelDB documentation](https://github.com/google/leveldb/blob/main/doc/index.md)
 - [`classic-level` documentation](https://github.com/Level/classic-level)
 - [`abstract-level` ranges, sublevels, batches, and snapshots](https://github.com/Level/abstract-level)
+- [RFC 6585, 429 Too Many Requests](https://www.rfc-editor.org/rfc/rfc6585.html#section-4)

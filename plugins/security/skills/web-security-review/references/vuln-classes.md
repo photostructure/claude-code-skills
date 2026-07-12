@@ -28,22 +28,25 @@ input is attacker-controlled and not framework-mitigated — see `false-positive
 - **Deployment:** least-privilege DB roles, TLS in transit, and migration privilege are
   in `database-deployment-security.md`, not here.
 
-**Per-ORM raw escape hatches** — the exact method that bypasses parameterization:
+**Per-ORM raw SQL review** — version-gate every API against the installed package.
+An API named `Unsafe` or `raw` can still accept bound values; the vulnerability is
+attacker data becoming SQL syntax rather than a parameter.
 
 | ORM | Dangerous (with request data) | Safe form |
 |-----|-------------------------------|-----------|
-| Sequelize | `sequelize.query(str)`, `literal(...)`+`replacements` in one `where` | `query(sql, { replacements: { id } })` / `sql` tag |
-| Knex | `.raw(str)`, `.whereRaw(str)`, `.orderByRaw(str)` with concat | `.raw("?? = ?", [col, val])` (`?`=value, `??`=identifier) |
-| Prisma | `$queryRawUnsafe(str)`, `$executeRawUnsafe(str)`, `Prisma.raw(str)` | ``$queryRaw`… ${value}` `` tagged template; `Prisma.sql`/`join` |
-| TypeORM | `dataSource.query(str)` with concat; identifier fn `() => userInput` | named params `query("… :id", { id })`; `sql` tag |
-| Drizzle | `sql.raw(str)`; `sql.identifier()`/`.as()` fed request data | ``sql`… ${value}` `` tag; allowlist identifiers |
+| Sequelize | concatenated `sequelize.query(str)` or `literal(str)` | v6 `query` with `replacements`/`bind`; v7 `sql` tag (values only) |
+| Knex | concatenated `.raw`/`.whereRaw`/`.orderByRaw` | bindings: `?` for values, `??` for identifiers; still allowlist which identifiers may be selected |
+| Prisma | concatenation passed to `$queryRawUnsafe`/`$executeRawUnsafe`; tainted `Prisma.raw` | ``$queryRaw`… ${value}` `` / ``$executeRaw`…` `` tagged templates; bound arguments to unsafe methods are also parameterized |
+| TypeORM | concatenated `dataSource.query(str)`; function interpolation inside the `sql` tag | `dataSource.sql` value interpolation, or driver-specific placeholders with `query(sql, values)` |
+| Drizzle | tainted text passed to `sql.raw(str)` | ``sql`… ${value}` `` parameterizes runtime values; use schema table/column objects and allowlist dynamic choices |
 
-- **Object/array injection into where-clause shorthand** — looks parameterized but
-  isn't. Express's `qs` parser turns `?id[$gt]=` / `?id[name]=x` into an *object*, and
-  `.where({ id: req.query.id })` compiles it into extra SQL (Knex CVE-2016-20018 dropped
-  the WHERE clause → returns all rows). **Detect:** `.where({ col: req.query|body|params.x })`
-  or `findOne({ where: req.query })` with no scalar type-check. **Fix:** reject
-  non-scalar values (`typeof x === "string" || "number"`) before the query.
+- **Unexpected structured values in where-clause shorthand.** JSON bodies can carry
+  objects/arrays; query strings can too, depending on the configured parser. MongoDB
+  filters interpret operator objects. SQL ORM behavior is library/version-specific and
+  may reject, stringify, or structurally interpret such values. **Detect:** request
+  values passed to `.where(...)`/`findOne(...)` without schema validation. **Fix:**
+  require the expected scalar or explicitly build an allowlisted structured filter,
+  then inspect the generated query before claiming SQL injection.
 - **Unparameterizable identifiers (ORDER BY / column / table):** `` `ORDER BY ${col}` ``,
   `.orderByRaw(req.query.sort)`. **Fix:** map against a fixed `const ALLOWED = [...]`
   allowlist and fall back on no match — never pass the raw string through, even
@@ -58,14 +61,18 @@ input is attacker-controlled and not framework-mitigated — see `false-positive
 Load when `package.json` shows `better-sqlite3` / `sqlite3` / `@photostructure/sqlite` /
 `node:sqlite`.
 
-- **`ATTACH DATABASE` escalation:** any confirmed SQLi on SQLite upgrades to **arbitrary
-  file write / RCE** (`'; ATTACH DATABASE '/var/www/x.php' AS y; …`) if the DB process
-  can write under a served directory. Not greppable — it's a severity escalator for a
-  confirmed injection. **Fix:** `SQLITE_DBCONFIG_DEFENSIVE`, no attach if unused.
-- **`load_extension()` = RCE:** loading a native extension from a request-influenced
-  path is code execution. **Detect:** `.loadExtension(`, `enable_load_extension`,
-  `sqlite3_enable_load_extension` reachable from config/upload/plugin-discovery data
-  (off by default — flag where explicitly enabled).
+- **`ATTACH DATABASE` escalation:** injected SQL may open, create, and write SQLite
+  database files within the process's filesystem permissions. That is not automatically
+  an arbitrary-content write or RCE. Prove a sensitive existing database can be read or
+  modified, or that creating a valid SQLite-format file at a chosen path has concrete
+  impact. `SQLITE_DBCONFIG_DEFENSIVE` does **not** disable `ATTACH`; where supported,
+  disable attach-create/write, set the attached-database limit appropriately, or deny
+  `SQLITE_ATTACH` with an authorizer when the application does not need it.
+- **Loadable extensions:** loading an attacker-provided native library is code execution.
+  Path control alone is insufficient unless the attacker can place/select a compatible
+  malicious library. Check `.loadExtension(`, `enable_load_extension`, and
+  `sqlite3_enable_load_extension`; SQLite and `node:sqlite` disable extension loading by
+  default, so establish that the effective connection enables it.
 - **File exposure:** the DB file's ACL *is* its access control. **Detect:**
   `express.static`/`res.sendFile` roots at or above the data dir, or `path.join(base,
   req.params.file)` that can resolve to the `.sqlite`/`-wal`/`-shm` (the WAL holds
@@ -219,13 +226,20 @@ Load when `package.json` shows `better-sqlite3` / `sqlite3` / `@photostructure/s
 
 For **OAuth/OIDC/SSO** flows, see `oidc-sso-review.md`.
 
-- **Password hashing:** argon2id (≥19 MiB, 2 iterations, parallelism 1) or bcrypt (cost
-  ≥ 10, legacy). **Flag:** `createHash("md5"|"sha1")` near a password, `bcrypt.hash(pw,
-  <10)`, or `password === row.password` (plaintext compare).
-- **Constant-time comparison:** reset tokens, API keys, HMAC signatures, CSRF tokens
-  must use `crypto.timingSafeEqual(Buffer.from(a), Buffer.from(b))` — **flag** `===`/
-  `==`/`.equals()` comparing a secret. (Buffers must be equal length or it throws — hash
-  both sides first if lengths vary.)
+- **Password hashing:** OWASP's current baseline is Argon2id with at least 19 MiB,
+  2 iterations, parallelism 1; bcrypt with work factor at least 10 is a legacy fallback
+  (and has a 72-byte input limit). Fast hashes or plaintext password storage are strong
+  candidates. A work factor below a published baseline is not automatically a proven
+  vulnerability: establish the effective parameters and credible offline-guessing
+  impact, or route it to hardening review.
+- **Secret comparison timing:** use a vetted verifier or constant-time primitive for
+  MAC/signature verification and other comparisons where an attacker can make repeated
+  measurements and a prefix-dependent timing difference leaks a useful secret. Do not
+  flag every `===` over reset tokens, API keys, or CSRF tokens on pattern alone. Prove
+  the comparison leaks progressively useful information across the real transport.
+  Node's `timingSafeEqual` requires equal-length byte inputs and does not make surrounding
+  code timing-safe; hash fixed-domain variable-length values before comparison when the
+  protocol requires it.
 - **Account enumeration:** login/reset/signup returning different status/message/shape
   by account existence, or a fast `return` before the (deliberately slow) hash on the
   user-not-found path (a **timing oracle** — µs miss vs ms hash). **Fix:** identical
@@ -235,24 +249,38 @@ For **OAuth/OIDC/SSO** flows, see `oidc-sso-review.md`.
   `req.get("host")`/`X-Forwarded-Host` (**host-header poisoning** → token theft — see
   SSRF & `self-hosting-hardening.md`); missing `Referrer-Policy: no-referrer` on the
   reset page. **Fix:** `crypto.randomBytes(≥16).toString("base64url")`, short TTL,
-  single-use, hardcoded/allowlisted base URL.
-- **Session cookies:** missing `httpOnly`/`Secure`/`SameSite`; prefer the `__Host-`
-  prefix (forces `Secure`, `Path=/`, no `Domain` — blocks subdomain cookie injection).
-- **Session fixation:** regenerate the session id (`req.session.regenerate()`) on **all**
-  of: login, re-login, password change, **and any privilege/role change** (the
-  commonly-missed one).
-- **Timeout / logout invalidation:** logout that only clears the client cookie with no
-  server-side `session.destroy()` / JWT revocation; no idle/absolute timeout. Stateless
-  JWT with **no revocation** (`jti` denylist or per-user `tokenVersion`/`passwordChangedAt`
-  claim checked each request) means "logout does nothing."
+  single-use, hardcoded/allowlisted base URL. Treat the missing header alone as
+  hardening; report leakage only when a token-bearing URL can be sent as a referrer to
+  a concrete cross-origin navigation/resource under the browser's effective policy.
+- **Session cookies:** inspect `HttpOnly`, `Secure`, `SameSite`, `Domain`, and `Path` in
+  context. Missing `Secure` is exploitable when HTTP disclosure is reachable; missing
+  `HttpOnly` amplifies a proven script-read path; missing `SameSite` matters when CSRF
+  is otherwise unmitigated. Prefer the `__Host-` prefix when host-only scope fits (it
+  requires `Secure`, `Path=/`, and no `Domain`). Do not report an absent flag without
+  the corresponding attacker path.
+- **Session fixation:** investigate whether an attacker can set or learn a pre-auth
+  session identifier and the server preserves that identifier across login or another
+  privilege transition. Missing `req.session.regenerate()` alone is not proof; show
+  both attacker control/knowledge and identifier continuity. Regenerate and invalidate
+  the old identifier at authentication and privilege-level changes.
+- **Timeout / logout invalidation:** server-side sessions should be invalidated on
+  logout and have appropriate idle/absolute limits. A stateless access token commonly
+  remains valid until expiry; lack of a denylist is not automatically a vulnerability.
+  Report when the application promises immediate logout/revocation, uses excessive
+  lifetimes, or fails to invalidate tokens after a proven high-risk event. Short-lived
+  access tokens plus refresh-token revocation/rotation may be the intended design.
 - **Session-id entropy:** built from `Date.now()`, counters, `Math.random()`, or UUID v1
   → predictable. Use `crypto.randomUUID()` / `randomBytes(≥16)`.
-- **JWT:** `alg:none` accepted; algorithm not pinned (RS256↔HS256 confusion); weak/
-  hardcoded HMAC secret; `exp` **and `aud`/`iss`** not validated; signature not verified
-  (`jwt.decode` vs `jwt.verify`); `verify()` with no `algorithms` option (re-opens
-  jsonwebtoken CVE-2022-23540 default-to-`none`). **Fix:** `verify(t, key, { algorithms:
-  ["RS256"], audience, issuer })`. **Flag** `localStorage.setItem("token"…)` — XSS-
-  exfiltrable; prefer an httpOnly cookie.
+- **JWT:** investigate unsigned tokens, algorithm/key confusion, weak HMAC secrets,
+  missing signature verification, and claims not validated for the token profile
+  (`exp`, expected `iss`, intended `aud`, and mutually exclusive rules for different
+  token kinds). Pin allowed algorithms from application configuration. For
+  `jsonwebtoken`, CVE-2022-23540 affects versions through 8.5.1 under its documented
+  preconditions; version 9 removed implicit `none` support, so a missing `algorithms`
+  option is not by itself proof on current versions. Browser storage readable by
+  JavaScript increases the impact of a proven XSS; `localStorage.setItem("token", …)`
+  alone is a hardening concern, not an XSS finding. HttpOnly cookies reduce token theft
+  but require CSRF analysis because browsers send them ambiently.
 
 ---
 
@@ -263,36 +291,46 @@ For **OAuth/OIDC/SSO** flows, see `oidc-sso-review.md`.
   metadata (`169.254.169.254`, `metadata.google.internal`) → IAM creds; LAN box →
   internal unauth services (`192.168.x.x`). Common sinks: avatar-by-URL, RSS/webhook
   test-fire, remote-thumbnail proxy, OIDC discovery fetch.
-- **Not a finding here:** path-only control (host/protocol fixed) — check under path
-  traversal instead. See `false-positives.md`.
-- **Safe:** allowlist hosts/protocols; resolve-then-check the **IP** (block private/link-
-  local) and re-check on redirect (DNS rebinding).
+- **Fixed host is not an automatic exclusion:** path-only control cannot pivot hosts,
+  but it can still abuse the server's credentials or network position to invoke a
+  privileged route on that service. Do not call URL-path manipulation filesystem path
+  traversal unless it actually reaches a filesystem path sink.
+- **Mitigation:** prefer an allowlist of schemes and destinations. When arbitrary hosts
+  are required, parse/canonicalize, resolve all addresses, reject disallowed ranges,
+  make the connection use the validated result, and re-apply policy on every redirect.
 
 ---
 
 ## CSRF
 
 - **Signals:** state-changing route (POST/PUT/PATCH/DELETE) authenticated by an **ambient
-  cookie** with **no** CSRF token / no `SameSite` cookie / no origin check.
+  cookie** where none of the effective defenses apply: framework CSRF token, suitable
+  `SameSite` policy, validated origin, or another documented mechanism.
 - **Not CSRF-able:** routes authenticated *only* by an `Authorization: Bearer` header —
   the browser doesn't auto-send it, so there's no ambient-credential attack. Don't flag
   those. A route that mixes cookie session auth *and* mutates state **is** a candidate.
-- **Safe:** `SameSite=Lax|Strict` cookies + token or origin/referer check. GET handlers
-  that mutate state are a smell — check them.
+- **Mitigations:** use the framework's synchronizer-token or signed double-submit
+  pattern as appropriate; origin verification and Fetch Metadata can add protection.
+  `SameSite` is defense in depth and must match the flow; `Lax` still permits cookies on
+  some top-level navigations, so state-changing GET endpoints remain exposed. Confirm
+  the complete route/method/browser behavior before declaring the endpoint safe.
 
 ---
 
 ## Deserialization & data handling
 
-- **Signals:** `JSON.parse` then spread into an object (prototype pollution — see
+- **Signals:** parsed attacker objects merged through unsafe recursive/key-copy logic
+  (ordinary `JSON.parse` plus object spread is not automatically prototype pollution;
+  see
   `javascript-web-patterns.md`); `node-serialize`/`funcster`-style eval-on-deserialize;
-  js-yaml **3.x** `load()` on attacker input; js-yaml **4.x** `load()` only when code
-  supplies dangerous custom schemas/types; XXE in XML parsers with external entities
-  enabled.
+  vulnerable deserializers that reconstruct executable values; XXE in XML parsers with
+  external entities enabled.
 - **Version gate:** determine the installed js-yaml version from the lockfile. In 4.x,
   ordinary `load()` uses the safe schema and `safeLoad()` was removed, so do not flag
-  ordinary `load()` or recommend `safeLoad()`. For affected 3.x code, upgrade to 4.x
-  or use 3.x `safeLoad()` while upgrading.
+  ordinary `load()` or recommend `safeLoad()`. In 3.x, investigate `load()` with the
+  full schema only when attacker YAML can instantiate a dangerous JavaScript-specific
+  type and that value reaches an execution sink; prefer upgrading to 4.x or use 3.x
+  `safeLoad()` while upgrading.
 - **Safe:** schema-validate parsed input (`zod`/`joi`); disable external entities;
   never deserialize attacker data into executable structures.
 
@@ -330,7 +368,8 @@ For **OAuth/OIDC/SSO** flows, see `oidc-sso-review.md`.
 
 ## Secrets exposure
 
-- **Signals:** hardcoded API keys/tokens/passwords/private keys; a **placeholder fallback**
+- **Signals:** hardcoded API keys/tokens/passwords/private keys; an effective known
+  **placeholder fallback**
   on a secret (`process.env.SECRET ?? "changeme"`); DB connection strings with embedded
   credentials; secrets in `NEXT_PUBLIC_*`/`VITE_*` (shipped to browser); a full model/row
   passed to a logger (`logger.info(user)` serializing a hash/PII). Scan `.env`, config,
@@ -344,9 +383,10 @@ For **OAuth/OIDC/SSO** flows, see `oidc-sso-review.md`.
 ## Information disclosure
 
 - **Verbose DB errors to the client:** `res.status(500).json(err)` / `res.send(err.stack)`
-  reaching a DB-driver error turns blind injection into sighted (leaks query structure/
-  schema), and driver `Error` objects can contain the **connection string** verbatim.
-  **Fix:** generic client message; full error only to server-side logs.
+  can expose query text, schema, filesystem paths, or credentials depending on the
+  actual driver and serialization. Inspect the concrete error object; do not assume a
+  connection string is present or claim exploit escalation without showing it.
+  **Fix:** return a generic client message and redact sensitive server-log fields.
 
 ---
 
@@ -358,3 +398,12 @@ For **OAuth/OIDC/SSO** flows, see `oidc-sso-review.md`.
   predictable resource identifiers enabling enumeration.
 - **Bar:** report only when concretely exploitable (double-spend, auth check/use gap),
   not theoretical timing windows.
+
+## Authoritative references
+
+- [OWASP Cheat Sheet Series](https://cheatsheetseries.owasp.org/): [SQL Injection](https://cheatsheetseries.owasp.org/cheatsheets/SQL_Injection_Prevention_Cheat_Sheet.html), [NoSQL Security](https://cheatsheetseries.owasp.org/cheatsheets/NoSQL_Security_Cheat_Sheet.html), [Authorization](https://cheatsheetseries.owasp.org/cheatsheets/Authorization_Cheat_Sheet.html), [Authentication](https://cheatsheetseries.owasp.org/cheatsheets/Authentication_Cheat_Sheet.html), [Session Management](https://cheatsheetseries.owasp.org/cheatsheets/Session_Management_Cheat_Sheet.html), [CSRF](https://cheatsheetseries.owasp.org/cheatsheets/Cross-Site_Request_Forgery_Prevention_Cheat_Sheet.html), and [SSRF](https://cheatsheetseries.owasp.org/cheatsheets/Server_Side_Request_Forgery_Prevention_Cheat_Sheet.html)
+- [RFC 8725 — JSON Web Token Best Current Practices](https://datatracker.ietf.org/doc/html/rfc8725) · [Auth0 `jsonwebtoken` security bulletin](https://auth0.com/docs/secure/security-guidance/security-bulletins/2022-12-21-jsonwebtoken)
+- [Node.js `crypto.timingSafeEqual`](https://nodejs.org/api/crypto.html#cryptotimingsafeequala-b) · [Node.js `child_process`](https://nodejs.org/api/child_process.html)
+- [SQLite ATTACH](https://sqlite.org/lang_attach.html) · [SQLite connection configuration](https://sqlite.org/c3ref/c_dbconfig_defensive.html) · [SQLite authorizer action codes](https://sqlite.org/c3ref/c_alter_table.html) · [SQLite loadable extensions](https://sqlite.org/loadext.html) · [Node.js SQLite](https://nodejs.org/api/sqlite.html)
+- ORM documentation: [Sequelize v6 raw queries](https://sequelize.org/docs/v6/core-concepts/raw-queries/), [Sequelize v7 raw SQL](https://sequelize.org/docs/v7/querying/raw-queries/), [Knex raw bindings](https://knexjs.org/guide/raw.html), [Prisma raw queries](https://www.prisma.io/docs/orm/prisma-client/using-raw-sql/raw-queries), [TypeORM SQL tag](https://typeorm.io/docs/guides/sql-tag/), [Drizzle `sql` operator](https://orm.drizzle.team/docs/sql)
+- [Redis security](https://redis.io/docs/latest/operate/oss_and_stack/management/security/) · [classic-level](https://github.com/Level/classic-level) · [abstract-level](https://github.com/Level/abstract-level)

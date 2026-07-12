@@ -18,6 +18,11 @@ Use **OWASP ASVS 5.0.0** as the coverage index. ASVS is a verification standard,
 not a vulnerability severity system and not a mandate to implement every control in
 every application. Select a level and applicable domains before assessing controls.
 
+Describe a review based on these condensed references as **ASVS-guided**. Claim ASVS
+conformance only after enumerating every requirement at the selected level, recording
+applicability, and obtaining the required code, configuration, architecture, and
+operational evidence. A clean selected-control review is not certification.
+
 Use the OWASP Cheat Sheet Series to interpret and implement requirements. Use NIST,
 RFCs, MDN, and official framework/library documentation when those sources define the
 relevant behavior more precisely.
@@ -31,7 +36,7 @@ the stronger basis for design, coding standards, review, and verification.
 | --- | --- | --- |
 | **ASVS Level 1** | Lightweight review, low-risk public content, portfolio screening, early development | Broad minimum controls; identify obvious baseline omissions |
 | **ASVS Level 2** | Most production applications, especially authenticated or data-bearing apps | Default; cover normal application and platform security boundaries |
-| **ASVS Level 3** | High-value, high-safety, regulated, or explicitly high-assurance systems | Deep architecture, operational, cryptographic, and verification rigor |
+| **ASVS Level 3** | Systems whose risk analysis, contracts, or regulatory requirements call for the highest assurance | Deep architecture, operational, cryptographic, and verification rigor |
 
 Choose Level 2 when any of these are present unless the user specifies otherwise:
 
@@ -43,6 +48,11 @@ Choose Level 2 when any of these are present unless the user specifies otherwise
 Level 3 is not “more findings.” It is a stricter assurance target that may require
 architecture/process evidence beyond source code. Mark such controls Needs verification
 when their evidence lives outside the repository.
+
+ASVS requirement `v5.0.0-6.3.3` makes MFA part of Level 2 and adds stronger hardware-
+based requirements at Level 3. Do not select Level 2 while treating MFA as optional. If
+the user wants a tailored hardening review rather than ASVS conformance, state the
+deviation instead of relabeling the result as a lower or passing ASVS assessment.
 
 ## Profile-driven applicability
 
@@ -140,6 +150,8 @@ Critical or imply exploitability.
 - Prefer normative/official sources; use community listicles only as discovery leads.
 - Include the date of any live source verification when the user requests an auditable
   or compliance-oriented report.
+- State whether the report assessed a selected control set or every applicable
+  requirement at the chosen level.
 
 ## Primary sources
 

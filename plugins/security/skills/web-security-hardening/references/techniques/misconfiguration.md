@@ -38,23 +38,24 @@ Apache `Options +Indexes`).
   to "harden" a listing into safety — the fix is disabling the feature. Keep application
   data, backups, and dotfiles outside any static/web-served root regardless.
 
-## Gate API explorers, introspection, and setup routes out of production
+## Decide production exposure for explorers, introspection, and setup routes
 
-Swagger/OpenAPI UIs, GraphQL explorers, and one-time bootstrap/install routes are useful
-in dev and become reconnaissance or takeover surface in prod.
+Swagger/OpenAPI UIs, GraphQL explorers, and one-time bootstrap/install routes require an
+explicit production exposure decision. Documentation and introspection can be intentional
+for a public API; setup routes are different because they can change trust state.
 
 - Anti-pattern to grep: `swaggerUi.serve` / `SwaggerModule.setup(...)` mounted
   unconditionally; a GraphQL server with introspection/explorer enabled in prod
   (`introspection: true`, or Apollo's landing page / GraphQL Playground left on); a
   `/setup`, `/install`, `/seed-admin`, or first-run bootstrap route with no permanent
   disable after completion.
-- Fix: wrap explorer/introspection mounts in an explicit `if (process.env.NODE_ENV !==
-  'production')` (or a dedicated flag), or require authentication to reach them. Disable
-  GraphQL introspection and the landing page in prod — verify the exact option names
-  (`introspection`, plugin/landing-page option) against the installed server version, as
-  Apollo and other servers renamed these across majors. Make setup routes fail closed once
-  initialized: gate on a persisted "initialized" flag that, once set, returns 404/403
-  permanently — not an in-memory boolean that resets on restart.
+- Fix: disable explorers in production unless they are an intentional, access-controlled
+  product surface. Disable or restrict GraphQL introspection based on the API's consumers
+  and threat model; it is not an authorization control, and public schemas may intentionally
+  expose it. Verify exact server/version options. Make setup routes fail closed once
+  initialized: gate on persisted state and remove public access after setup. If recovery or
+  reinitialization is required, expose it through a separately authenticated operational
+  procedure—not an in-memory boolean that resets on restart.
 
 ## Primary sources
 

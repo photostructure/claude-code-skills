@@ -7,15 +7,16 @@ then a segment-aware containment check. Order matters: each step defeats a diffe
 
 ## Decode before you canonicalize
 
-Containment checked against a still-encoded string is bypassable — `%2e%2e%2f`,
-double-encoded `%252e`, overlong UTF-8, and null bytes all pass a naive `includes('../')`
-denylist and only become `../` after the platform decodes them downstream.
+Containment checked before a later decoding step is bypassable: an encoded separator can
+become traversal after the check. Define one canonical decoding boundary and ensure no
+downstream component decodes the path again.
 
 - Anti-pattern: `if (name.includes('..')) reject()` / `path.join(base, req.query.file)`
   applied to a raw or single-pass value; a denylist scan run before any decode.
-- Fix: fully URL-decode the untrusted segment before comparing (`decodeURIComponent`),
-  and reject rather than re-loop if the value still contains a `%` after one decode
-  (defeats double-encoding like `%252e`) — do not silently decode repeatedly.
+- If the handler receives a raw URL component, decode it exactly once with the protocol-
+  appropriate decoder and reject malformed encoding. Do **not** reject every remaining `%`:
+  it may be legitimate data. Instead, prevent a second decode downstream. If a router has
+  already decoded the value, do not call `decodeURIComponent` again.
 - Reject null bytes explicitly (`name.includes('\0')`). Node `fs`/`path` calls throw on a
   poison-null-byte path (`ERR_INVALID_ARG_VALUE`), but reject at the boundary so the value
   never reaches a sink — verify the throw behavior against your installed Node version.
@@ -33,14 +34,18 @@ not by string prefix. A prefix test (`resolved.startsWith(base)`) lets a sibling
   before `path.resolve`; trusting `path.isAbsolute` alone (docs: "not safe for mitigating
   path traversals").
 - Fix: `const target = path.resolve(base, candidate)` then require
-  `const rel = path.relative(base, target)` to be non-empty and **not** start with `..`
-  and **not** be absolute (`!rel.startsWith('..') && !path.isAbsolute(rel)`). Equivalently,
-  compare against `base + path.sep`. `path.resolve` normalizes away `..`/`.` and
-  `path.relative` yields a `../`-leading string precisely when `target` escapes `base`.
+  `const rel = path.relative(base, target)` and reject when `rel === '..'`,
+  `rel.startsWith('..' + path.sep)`, or `path.isAbsolute(rel)`. An empty `rel` means the
+  target equals the base; allow or reject that according to whether the operation may use
+  the directory itself. Do not use `rel.startsWith('..')`, which also rejects a valid name
+  such as `..notes`.
 - This is a lexical check. It does not stop symlink or TOCTOU escapes where an attacker
-  controls intermediate directories — pair with `O_NOFOLLOW`/`fs.realpath` and
-  least-privilege modes (see ../deployment-and-operations.md). Verify `path.relative`/
-  `path.resolve` semantics against your installed Node version.
+  controls directories. `O_NOFOLLOW` commonly protects only the final path component;
+  `realpath` followed by a later open can race. Prefer an OS/runtime facility that resolves
+  relative to an already-open directory while forbidding symlinks beneath it, where
+  available; otherwise remove attacker write access to path components and apply least
+  privilege. Verify platform and Node support rather than presenting `O_NOFOLLOW` plus
+  `realpath` as a complete generic fix.
 
 ## Framework decoding is already done for you
 
@@ -57,3 +62,4 @@ not by string prefix. A prefix test (`resolved.startsWith(base)`) lets a sibling
 - [OWASP Path Traversal](https://owasp.org/www-community/attacks/Path_Traversal)
 - [OWASP Input Validation Cheat Sheet](https://cheatsheetseries.owasp.org/cheatsheets/Input_Validation_Cheat_Sheet.html)
 - [Node.js path module](https://nodejs.org/api/path.html)
+- [Linux `openat2(2)` — `RESOLVE_BENEATH` / `RESOLVE_NO_SYMLINKS`](https://man7.org/linux/man-pages/man2/openat2.2.html)

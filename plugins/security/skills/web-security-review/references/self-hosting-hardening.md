@@ -1,9 +1,8 @@
 <!--
 Composite reference for self-hosted deployment hardening. See ../ATTRIBUTION.md.
 Detection guidance synthesized from the OWASP Cheat Sheet Series (Docker Security,
-Database Security, SSRF Prevention, HTTP Headers), OWASP ASVS V14, the CIS Docker
-Benchmark, the Express "behind proxies" guide, and public CVE write-ups for
-self-hosted apps. Facts and API names; expression is original. CC BY-SA 4.0.
+Database Security, SSRF Prevention, HTTP Headers), OWASP ASVS 5.0.0, official Docker
+and Express documentation, and upstream security advisories. CC BY-SA 4.0.
 -->
 
 # Self-Hosting / Deployment Hardening
@@ -20,7 +19,7 @@ investigate that boundary, but keep every candidate behind the same proof gate a
 findings.
 
 **Report proven items under their own "Deployment Hardening" section** with a
-Deployment-Risk rating (Critical / High / Medium), separate from the app-vuln severity
+Deployment-Risk rating (Critical / High / Medium / Low), separate from the app-vuln severity
 table. For each item, establish the effective configuration, attacker reachability or
 capability, the boundary removed, and concrete impact. A missing `USER`, read-only
 rootfs, capability drop, security header, update notifier, or similar hardening control
@@ -31,31 +30,32 @@ alone is theoretical and must be dropped. The exclusions in
 
 ## 1. Network exposure
 
-| Check | Risk | Detection |
-|-------|------|-----------|
-| DB/cache/admin port published to all interfaces | **Critical** | `ports:` in compose or `-p` on `docker run` without a `127.0.0.1:` prefix, esp. for `postgres`/`mysql`/`redis`/`mongo`/`elasticsearch` |
-| App server binds `0.0.0.0`/`::` implicitly | High | `.listen(port)` with no host arg (Node defaults to all interfaces) |
-| "Firewall protects the DB port" assumption | **Critical** | Docker writes its own iptables rules **before** UFW's INPUT chain — `ufw deny 5432` does **nothing** for a published container port |
+| Candidate | Detection and proof required |
+|-----------|------------------------------|
+| DB/cache/admin port published to all interfaces | `ports:` in Compose or `-p` without a host IP publishes on all host addresses by default. Prove the host is reachable and the service's effective authentication/authorization permits impact. |
+| App server binds `0.0.0.0`/`::` implicitly | `.listen(port)` with no host argument accepts on the unspecified address. This is often intentional; report only when it crosses a documented boundary and exposes a sensitive service. |
+| Deployment relies only on UFW for a Docker-published port | Docker documents that published-container traffic is diverted before UFW's `INPUT`/`OUTPUT` chains. Verify the actual Docker firewall backend and host rules before concluding the port is reachable. |
 
 - **Remediation:** bind sensitive services to `127.0.0.1:<port>:<port>` (or drop
-  `ports:` entirely and use the compose network); add `DOCKER-USER` iptables rules for
-  defense-in-depth. Publicly reachable MongoDB, Elasticsearch, Redis, and SQL services
-  without authentication have repeatedly been ransomed or destroyed.
+  `ports:` entirely and use the Compose network). Apply host filtering appropriate to
+  Docker's configured firewall backend; `DOCKER-USER` is the iptables path, while the
+  nftables backend uses separately managed base chains and priorities.
 - For DB-specific deployment hardening (least-privilege roles, default credentials, TLS
   in transit, migrations, dump exposure), see `database-deployment-security.md`.
 
 ## 2. Reverse proxy & TLS
 
-Self-hosted apps sit behind a user-chosen proxy (nginx/Caddy/Traefik/NPM), so trust of
-forwarded headers is the recurring bug.
+Many self-hosted apps sit behind a user-chosen proxy (nginx/Caddy/Traefik/NPM), making
+forwarded-header trust important to verify.
 
-- **Express `trust proxy` misconfiguration → IP/host spoofing.** `app.set("trust
-  proxy", true)` (pasted from Stack Overflow to "fix HTTPS behind nginx") makes Express
-  take the **left-most**, attacker-supplied `X-Forwarded-For` as `req.ip` — defeating
-  IP rate-limits, allowlists, and audit logs — and makes `req.hostname`/`req.protocol`
-  attacker-controlled. **Detect:** `app.set("trust proxy"` set to `true` or a bare
-  number. **Fix:** set it to the exact proxy IP/subnet (or the named `loopback`/
-  `uniquelocal` ranges), and require the proxy to overwrite inbound `X-Forwarded-*`.
+- **Express `trust proxy` misconfiguration → forwarded-header spoofing.** With `true`,
+  Express trusts the left-most `X-Forwarded-For`; this is unsafe only if the last trusted
+  proxy does not overwrite inbound forwarded headers or the app is reachable without
+  that proxy. A numeric hop count can also fail when paths of different lengths reach
+  the app. Trace the actual topology and show a security decision based on spoofable
+  `req.ip`, `req.hostname`, or `req.protocol`. **Fix:** configure the exact trusted
+  proxy IP/subnet or a topology-appropriate trust function and make the edge proxy
+  replace inbound `X-Forwarded-*` values.
   *(This is a concrete app-code trust-boundary bug — also cross-listed in
   `vuln-classes.md`.)*
 - **Host header trusted for absolute URLs → password-reset poisoning.** Building reset
@@ -64,61 +64,65 @@ forwarded headers is the recurring bug.
   token. **Detect:** `req.hostname` / `req.get("host")` / `req.headers["x-forwarded-
   host"]` feeding an emailed or redirected URL. **Fix:** require an explicit
   `PUBLIC_URL`/`baseUrl` setting; never derive link domains from request headers.
-- **HSTS caution (self-hosted inversion of SaaS advice).** Self-hosted installs are
-  often first reached over plain HTTP on a LAN IP. Shipping
-  `Strict-Transport-Security: max-age=63072000; includeSubDomains; preload` by default
-  — or preloading — can **lock an admin out of their own instance** for up to two
-  years. **Fix:** emit HSTS only when the app confirms it's served over TLS
-  (proxy-confirmed `X-Forwarded-Proto` or app-terminated TLS); keep `max-age` short
-  until the admin opts in; never preload by default.
+- **HSTS deployment fit.** Browsers ignore HSTS received over HTTP and HSTS applies to
+  domain names, not IP-address hosts. On an HTTPS domain, a long `max-age`,
+  `includeSubDomains`, or preload enrollment can make certificate/configuration errors
+  non-bypassable and can affect subdomains. Treat this as deployment design, not a
+  vulnerability; verify every covered host supports durable HTTPS before recommending
+  those directives.
 
 ## 3. First-run / bootstrap
 
 - **Unauthenticated setup wizard left reachable post-install.** A one-time `/setup`
-  route with nothing disabling it after completion is a pre-auth takeover (cf.
-  Appsmith CVE-2024-55963 default-no-password Postgres → RCE; ChurchCRM install-wizard
-  pre-auth RCE). **Detect:** setup/onboarding routes (`/setup`, `/install`, `/init`,
+  route with nothing disabling it after completion can be a pre-auth takeover when it
+  can create an administrator or alter security configuration. **Detect:** setup/
+  onboarding routes (`/setup`, `/install`, `/init`,
   `/onboarding`) not gated by a **server-persisted** "claimed"/"initialized" flag
   checked in middleware on **every** request to that tree (frontend-only gating fails).
   *(Concrete auth-bypass — also in `vuln-classes.md`.)*
-- **Hardcoded / predictable default signing secret.** A shipped default `SECRET_KEY`/
-  session/HMAC key that's never rotated lets attackers forge admin cookies or JWTs
-  (Superset default `SECRET_KEY` → forged admin sessions, ~67% of exposed instances
-  still on a known key years later; Dokploy hardcoded `BETTER_AUTH_SECRET` → forged
-  JWT → RCE, CVSS 10.0). **Detect:** a string-literal fallback on a secret env var —
+- **Hardcoded / predictable default signing secret.** A publicly known shipped default
+  `SECRET_KEY`/session/HMAC key lets attackers forge protected values whenever the
+  application accepts that default. **Detect:** a string-literal fallback
+  on a secret env var —
   `process.env.SECRET_KEY ?? "..."`, `|| "changeme"` — or a `.env.example` default
   that's also the runtime default when unset. **Fix:** generate + persist a random
   secret on first boot; **refuse to start** if a known placeholder is present in prod.
-- **No default `admin/admin`.** Bootstrap must force the admin to set a password, not
-  ship working default credentials.
+- **No shared working default credentials.** Bootstrap can require the admin to set a
+  password or generate a unique one-time credential; do not ship a universal
+  `admin/admin`-style login.
 
 ## 4. Container & filesystem hardening
 
 | Check | Risk | Detection / Fix |
 |-------|------|-----------------|
-| Runs as root | Context only | Do not report alone. Escalate only when a proven attacker primitive reaches the container and root materially expands file, device, namespace, or host-mount impact. Fix: `useradd -r -u 1000 app` + `USER app` |
-| `docker.sock` mounted into a container | **Critical** | `docker.sock` in `volumes:` = root-equivalent host access. Fix: never mount it into an app container; if needed, use a scoped read-only socket proxy |
+| Runs as root | Context only | Do not report alone. Escalate only when a proven attacker primitive reaches the container and root materially expands file, device, namespace, or host-mount impact. Use an image-appropriate non-root user/UID and grant ownership only where the process must write. |
+| `docker.sock` mounted into a container | High-impact capability | Docker documents that controlling the daemon can grant root-level host control. Report only when an attacker can execute requests through the socket (for example, after a proven app compromise). Avoid the mount; if unavoidable, expose only required operations through a separately authenticated and authorized proxy. |
 | No read-only rootfs / caps not dropped | Context only | Do not report their absence alone. Use them only to establish added impact for a proven exploit; `--privileged` or dangerous added capabilities remain candidates when attacker reachability is shown |
-| World-readable data dir / DB file | High | `fs.writeFile`/`mkdir` with no restrictive `mode:`, or `chmod -R 777` in entrypoint. Fix: `0600`/`0700` under a dedicated non-root UID |
+| World-readable data dir / DB file | Candidate | `chmod -R 777` is strong evidence, but omission of a Node `mode` is not: the process umask and existing directory permissions apply. Determine effective ownership/mode and a local or co-tenant attacker path. |
 
 ## 5. Secrets management
 
-- **`.env` tracked in git.** `git ls-files | grep -E '^\.env($|\.)'`. Fix: `.gitignore`
-  + `.dockerignore` all `.env*`.
-- **Secrets baked into image layers.** `ENV`/`ARG` assigning `*_SECRET|*_PASSWORD|
-  *_KEY|*_TOKEN` in a Dockerfile persist in image history forever (`docker history`),
-  even after a later "removal". Fix: BuildKit `--mount=type=secret` for build-time
+- **`.env` tracked in git.** Inspect tracked files for real secrets and exposure; a
+  tracked example/template with placeholders is not a finding. Keep secret-bearing
+  files out of source control and build context.
+- **Secrets baked into image metadata/layers.** `ENV` persists in the final image;
+  secret values passed through `ARG` can appear in image history or provenance, and
+  copied secret files can remain in layers/cache even after later deletion. Fix:
+  BuildKit `--mount=type=secret` for build-time
   secrets; Compose `secrets:` (mounted at `/run/secrets/`) for runtime.
-- **Client-bundle leakage.** `NEXT_PUBLIC_*` / `VITE_*` / `REACT_APP_*` vars are shipped
-  to the browser — never put secrets there.
+- **Client-bundle leakage.** Build tools expose referenced variables with public
+  prefixes such as `NEXT_PUBLIC_*`, `VITE_*`, and `REACT_APP_*` to browser code. Treat
+  them as public and never assign secrets.
 - **Secrets logged.** Grep log calls for secret-shaped values; logging a live secret is
   a finding (see `false-positives.md` precedents).
 
 ## 6. CORS
 
 - **Reflected `Origin` + `Access-Control-Allow-Credentials: true`.** Because every
-  install has a different origin, developers reflect whatever `Origin` was sent — which
-  is functionally `*` + credentials and lets any site make authenticated requests.
+  install has a different origin, developers sometimes reflect whatever `Origin` was
+  sent. Prove that a victim credential is sent cross-site (for example, a cookie whose
+  `SameSite` policy permits it) and that a sensitive response or operation is exposed;
+  reflection plus `credentials: true` is a candidate, not proof by itself.
   **Detect:** `cors({ origin: true, credentials: true })` or `Access-Control-Allow-
   Origin` set from `req.headers.origin` with credentials. **Fix:** validate `Origin`
   against the instance's configured public URL(s). *(Also in `vuln-classes.md`.)*
@@ -134,19 +138,17 @@ forwarded headers is the recurring bug.
   admin UI, an unauth'd Redis/Prometheus on `192.168.x.x`).
 - Common SSRF-prone features in this app category: fetch-avatar-by-URL, RSS/podcast
   import, webhook test-fire, remote-thumbnail proxy, OIDC discovery-URL fetch.
-- **Fix:** resolve-then-validate the **IP** (not just hostname) against private/link-
-  local ranges before connecting, and re-validate on redirect (DNS-rebinding). Path-
-  only SSRF stays a non-finding (host/protocol fixed) — check it under path traversal.
+- **Fix:** prefer a destination allowlist. Where arbitrary hosts are required, parse and
+  canonicalize the URL, resolve every address, reject disallowed ranges, ensure the
+  connection uses the validated result (avoiding DNS-check/use races), and repeat the
+  policy for every redirect. Fixed-host path control can still be SSRF if the server's
+  network position or credentials expose privileged paths on that host.
 
-## 8. Update & patch cadence
+## 8. Update mechanism
 
-- **Stale long-lived instance.** Self-hosted installs only get patched if the admin
-  acts (Log4Shell is still exploited years later precisely in unmanaged deployments).
-  Check for *any* in-app update-availability signal (version-check banner, changelog
-  surfacing). **Fix:** ship an opt-in, privacy-respecting "new version available" check.
-- **The opposite failure: blind auto-update.** Pulling a mutable `latest` tag and
-  restarting can jump a major version or recreate a DB container mid-write. **Fix:** pin
-  image tags to digests; prefer notify-only / manual-approval for stateful containers.
+Do not report the absence of an in-app update notifier or use of a mutable image tag as
+a vulnerability. If update code is in scope, review its signature/provenance checks,
+authorization, rollback behavior, and whether an attacker can select the artifact.
 
 ## 9. Security headers (admin panels)
 
@@ -159,24 +161,22 @@ findings.
 ## 10. Backups
 
 - **Backup dumps world-readable or on an unauth route.** A flat DB dump has **no
-  query-layer access control**, so it bypasses all the app's IDOR/authz work. **Detect:**
+  query-layer access control**, so disclosure can reveal rows that application
+  authorization would filter. **Detect:**
   static-file config (`express.static`, nginx `location`) over a web root that could
   hold `*.sql`/`*.dump`/`*.bak`/`.env*`; backup-export routes missing auth middleware.
-  **Fix:** write backups outside any web-served dir; require fresh re-auth (not just an
-  ambient session) on any download endpoint, and log access.
+  **Fix:** write backups outside any web-served dir and require explicit privileged
+  authorization on download/restore endpoints. Consider recent reauthentication for
+  high-impact operations according to the threat model.
 
 ## 11. "Expose without auth" / trusted-network flags
 
 Many self-hosted apps ship an explicit escape hatch (e.g. `EXPOSE_NETWORK_WITHOUT_AUTH`,
-`SKIP_AUTH`, `DISABLE_AUTH`, `TRUST_NETWORK`) justified as "it's just my LAN." **A LAN
-is not a trust boundary** — it's a broadcast domain shared with guest Wi-Fi, a
-compromised IoT device pivoting laterally, or a forgotten UPnP rule; and CSRF works
-against a LAN app from the admin's own browser regardless. **Detect:** env-gated auth
-bypasses; confirm the flag is loudly warned at startup and cannot silently combine with
-a `0.0.0.0` bind. **Fix:** bind loopback by default regardless of the flag; require a
-second explicit opt-in to bind non-loopback; warn on every request while active. This
-is the one deliberate exception to `false-positives.md` exclusion #11 — the risk is the
-flag's default **binding scope**, not "can an attacker set env vars."
+`SKIP_AUTH`, `DISABLE_AUTH`, `TRUST_NETWORK`). An environment-controlled opt-out is not
+itself attacker-controlled. Establish that it is enabled in the effective deployment,
+which interfaces/routes become reachable, and what an unauthenticated network or CSRF
+attacker can do. Bind loopback by default for local-only modes and make broader exposure
+an explicit, visible operator choice.
 
 ## 12. Authentication endpoint hardening (brute-force)
 
@@ -207,22 +207,22 @@ or migration runner is in scope.
 
 ```bash
 # Ports published to all interfaces (want a 127.0.0.1: prefix on sensitive services)
-grep -rnE '^\s*-\s*"?[0-9]+:[0-9]+' docker-compose*.yml
-grep -rn "0.0.0.0" docker-compose*.yml Dockerfile
+rg -n '^\s*-\s*"?[0-9]+:[0-9]+' -g 'docker-compose*.yml'
+rg -n "0\.0\.0\.0" -g 'docker-compose*.yml' -g 'Dockerfile*'
 # Root container / socket mount / privileged
-grep -rniE "^\s*user:\s*root|--privileged|docker\.sock" Dockerfile docker-compose*.yml
-grep -Ln "^USER " Dockerfile        # Dockerfiles with NO USER directive
+rg -ni "^\s*user:\s*root|--privileged|docker\.sock" -g 'Dockerfile*' -g 'docker-compose*.yml'
+rg --files-without-match "^USER " -g 'Dockerfile*'  # Dockerfiles with NO USER directive
 # Secrets in image / tracked env files
-grep -rniE "^(ENV|ARG)\s+\w*(SECRET|PASSWORD|KEY|TOKEN)" Dockerfile
-git ls-files | grep -E '^\.env($|\.)'
+rg -ni "^(ENV|ARG)\s+\w*(SECRET|PASSWORD|KEY|TOKEN)" -g 'Dockerfile*'
+git ls-files | rg '^\.env($|\.)'
 # Express trust-proxy / host-header / CORS
-grep -rn "trust proxy" .
-grep -rnE "req\.(hostname|get\(.host|headers\[.host|headers\.host)" .
-grep -rnE "origin:\s*true|Access-Control-Allow-Origin" .
+rg -n "trust proxy" .
+rg -n "req\.(hostname|get\(.host|headers\[.host|headers\.host)" .
+rg -n "origin:\s*true|Access-Control-Allow-Origin" .
 # Placeholder secret fallbacks
-grep -rnE "process\.env\.\w*(SECRET|KEY|TOKEN)\w*\s*(\?\?|\|\|)\s*[\"']" .
+rg -n "process\.env\.\w*(SECRET|KEY|TOKEN)\w*\s*(\?\?|\|\|)\s*[\"']" .
 # Auth-bypass flags
-grep -rniE "EXPOSE.*WITHOUT_AUTH|SKIP_AUTH|DISABLE_AUTH|TRUST_NETWORK" .
+rg -ni "EXPOSE.*WITHOUT_AUTH|SKIP_AUTH|DISABLE_AUTH|TRUST_NETWORK" .
 ```
 
 ## Sources
@@ -231,7 +231,8 @@ grep -rniE "EXPOSE.*WITHOUT_AUTH|SKIP_AUTH|DISABLE_AUTH|TRUST_NETWORK" .
 - [OWASP Database Security Cheat Sheet](https://cheatsheetseries.owasp.org/cheatsheets/Database_Security_Cheat_Sheet.html)
 - [OWASP SSRF Prevention Cheat Sheet](https://cheatsheetseries.owasp.org/cheatsheets/Server_Side_Request_Forgery_Prevention_Cheat_Sheet.html)
 - [OWASP HTTP Headers Cheat Sheet](https://cheatsheetseries.owasp.org/cheatsheets/HTTP_Headers_Cheat_Sheet.html)
-- [OWASP ASVS V14 — Configuration](https://github.com/OWASP/ASVS/blob/master/4.0/en/0x22-V14-Config.md)
+- [OWASP ASVS 5.0.0](https://github.com/OWASP/ASVS/tree/v5.0.0/5.0/en)
 - [Express — Behind proxies](https://expressjs.com/en/guide/behind-proxies.html)
-- [CIS Docker Benchmark](https://docs.docker.com/dhi/core-concepts/cis/) · [Why Docker bypasses UFW](https://github.com/docker/for-linux/issues/690) · [ufw-docker](https://github.com/chaifeng/ufw-docker)
-- CVE write-ups: [Appsmith CVE-2024-55963](https://rhinosecuritylabs.com/research/cve-2024-55963-unauthenticated-rce-in-appsmith/) · [Superset CVE-2023-27524](https://horizon3.ai/attack-research/disclosures/cve-2023-27524-insecure-default-configuration-in-apache-superset-leads-to-remote-code-execution/) · [runc CVE-2019-5736](https://unit42.paloaltonetworks.com/breaking-docker-via-runc-explaining-cve-2019-5736/) · [Grafana CVE-2021-43798](https://labs.detectify.com/security-guidance/how-i-found-the-grafana-zero-day-path-traversal-exploit-that-gave-me-access-to-your-logs/) · [Password-reset poisoning](https://portswigger.net/web-security/host-header/exploiting/password-reset-poisoning)
+- [Docker port publishing and mapping](https://docs.docker.com/engine/network/port-publishing/) · [Docker packet filtering and UFW](https://docs.docker.com/engine/network/packet-filtering-firewalls/) · [Docker build secrets](https://docs.docker.com/build/building/secrets/)
+- [Node.js `net.Server.listen()`](https://nodejs.org/api/net.html#serverlisten)
+- [MDN — Strict-Transport-Security](https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Headers/Strict-Transport-Security)

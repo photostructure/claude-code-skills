@@ -34,16 +34,17 @@ pattern here means "do not flag."**
 <div className={userInput}>
 ```
 
-**Flag these:**
+**Investigate these escape hatches and executable/URL contexts.** Report only after
+tracing untrusted data and proving browser-executable or security-boundary impact;
+the API name does not determine severity.
 
 ```jsx
-<div dangerouslySetInnerHTML={{__html: userInput}} />  // XSS — Critical
-                                                       //   unless DOMPurify-sanitized
+<div dangerouslySetInnerHTML={{__html: userInput}} />  // raw HTML; require trusted or sanitized input
 <a href={userInput}>          // check for javascript: protocol
 <iframe src={userInput} />    // check for javascript: protocol
-eval(userInput)               // Critical
-new Function(userInput)       // Critical
-setTimeout(userInput, ms)     // Critical if string argument
+eval(userInput)               // script execution if attacker-controlled
+new Function(userInput)       // script execution if attacker-controlled
+setTimeout(userInput, ms)     // browser string form evaluates code
 ```
 
 **Safe remediations to recognize:**
@@ -52,7 +53,9 @@ setTimeout(userInput, ms)     // Critical if string argument
 import DOMPurify from "dompurify";
 <div dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(html) }} />;
 
-const ok = url.startsWith("https://") || url.startsWith("/"); // href allowlist
+const parsed = new URL(url, window.location.origin);
+const safeForExternalLink = parsed.protocol === "https:";
+const safeForLocalRedirect = parsed.origin === window.location.origin;
 ```
 
 ---
@@ -67,12 +70,12 @@ const ok = url.startsWith("https://") || url.startsWith("/"); // href allowlist
 <input :value="userInput" />
 ```
 
-**Flag these:**
+**Investigate these:**
 
 ```vue
-<div v-html="userInput"></div>   <!-- XSS — Critical -->
+<div v-html="userInput"></div>   <!-- raw HTML; require trusted or sanitized input -->
 <a :href="userInput">            <!-- check protocol -->
-<component :is="userInput" />    <!-- arbitrary component load -->
+<component :is="userInput" />    <!-- only security-relevant if it selects a privileged component/capability -->
 Vue.compile(userTemplate)        <!-- server-side template injection -->
 new Vue({ template: userInput })
 ```
@@ -84,13 +87,13 @@ new Vue({ template: userInput })
 **Auto-escaped — do NOT flag:** `{{ userInput }}` interpolation, `[innerHTML]="value"`
 (sanitized by `DomSanitizer`).
 
-**Flag these — sanitization bypass with user input:**
+**Investigate these sanitization bypasses when their argument is untrusted:**
 
 ```ts
-this.sanitizer.bypassSecurityTrustHtml(userInput); // FLAG
-this.sanitizer.bypassSecurityTrustScript(userInput); // FLAG
-this.sanitizer.bypassSecurityTrustUrl(userInput); // FLAG
-this.sanitizer.bypassSecurityTrustResourceUrl(userInput); // FLAG
+this.sanitizer.bypassSecurityTrustHtml(userInput); // CANDIDATE
+this.sanitizer.bypassSecurityTrustScript(userInput); // CANDIDATE
+this.sanitizer.bypassSecurityTrustUrl(userInput); // CANDIDATE
+this.sanitizer.bypassSecurityTrustResourceUrl(userInput); // CANDIDATE
 ```
 
 Only safe with server-validated, non-user content.
@@ -120,13 +123,13 @@ reaches an escaped directive. EJS `<%= value %>`, Handlebars `{{value}}`, and Pu
 and Pug `!= value` / `!{value}` emit raw HTML; flag them when the value is attacker-
 controlled and unsanitized.
 
-**Flag these:**
+**Investigate these:**
 
 ```js
-db.query(`SELECT * FROM users WHERE id = ${userId}`); // SQL injection
-db.collection("u").find({ $where: userInput }); // NoSQL code injection
+db.query(`SELECT * FROM users WHERE id = ${userId}`); // SQL injection if userId is tainted
+db.collection("u").find({ $where: userInput }); // NoSQL code injection if tainted
 exec(userInput);
-execSync(userInput); // command injection — Critical
+execSync(userInput); // command injection candidate; severity follows reachable impact
 spawn(cmd, { shell: true }); // command injection if cmd tainted
 res.sendFile(userPath);
 fs.readFile(userPath); // path traversal — check validation
@@ -164,10 +167,10 @@ authorization boundary.
 ```js
 await redis.get(`profile:${req.params.id}`); // not injection; still check ownership
 
-// FLAG: attacker chooses the Redis command and arguments
+// CANDIDATE: attacker chooses the Redis command and arguments
 await redis.sendCommand([req.body.command, ...req.body.args]);
 
-// FLAG: attacker supplies executable Lua source
+// CANDIDATE: attacker supplies executable Lua source
 await redis.eval(req.body.script, { keys: [key], arguments: [value] });
 
 // SAFE from script injection: source is fixed; data is passed separately
@@ -188,9 +191,9 @@ authorization question, not injection.
 ```js
 await db.get(req.params.id); // not injection; still check tenant/owner scope
 
-new ClassicLevel(req.query.location); // FLAG if reachable: filesystem path control
-await ClassicLevel.destroy(req.query.location); // FLAG: destructive path control
-await ClassicLevel.repair(req.query.location); // FLAG: destructive path control
+new ClassicLevel(req.query.location); // CANDIDATE: filesystem path/cross-store control
+await ClassicLevel.destroy(req.query.location); // CANDIDATE: destructive path control
+await ClassicLevel.repair(req.query.location); // CANDIDATE: destructive path control
 ```
 
 Use server-selected `sublevel()` namespaces to separate tenants/data classes, but do
@@ -199,16 +202,18 @@ invariants and a consistent snapshot for multi-read authorization decisions.
 
 ### Object / where-clause injection (looks safe, isn't)
 
-Express's `qs` parser turns `?id[$gt]=` into an **object**, so a "parameterized" ORM
-or ODM call can silently change meaning (for example, Knex CVE-2016-20018 dropped the
-WHERE clause; MongoDB interprets operator objects). A scalar type-check is the fix.
+Depending on the Express version and configured query parser, nested query syntax such
+as `?id[$gt]=` can become an **object**. JSON bodies can always carry objects. ODMs such
+as MongoDB may interpret operator objects; SQL ORM behavior varies by library and
+version. Validate the expected scalar type, then confirm the installed library's
+generated query before calling this injection.
 
 ```js
-// VULNERABLE: req.query.id may be an object, not a string
-knex("users").where({ id: req.query.id }); // ?id[$gt]= → returns all rows
+// CANDIDATE: req.query.id may be structured; inspect parser and ORM/ODM semantics
+knex("users").where({ id: req.query.id }); // behavior varies; inspect installed version/query
 User.findOne({ where: req.query }); // whole query object attacker-shaped
 
-// SAFE: reject non-scalars first (also collapse HPP with the `hpp` middleware)
+// SAFE: reject non-scalars before constructing the filter
 if (typeof req.query.id !== "string") throw new BadRequest();
 ```
 
@@ -238,13 +243,15 @@ export async function getServerSideProps({ query }) {
 <div dangerouslySetInnerHTML={{ __html: props.content }} />; // XSS
 ```
 
-**Watch:** `NEXT_PUBLIC_*` env vars are shipped to the client — never put secrets there.
+**Watch:** Next.js inlines referenced `NEXT_PUBLIC_*` values into browser bundles at
+build time. Treat those references as public and never assign secrets to them.
 
 ---
 
 ## DOM XSS sinks (vanilla / any framework escape hatch)
 
-**Always dangerous with user input:**
+**Candidate sinks with untrusted input** (prove the resulting execution, navigation,
+or other impact before reporting):
 
 ```js
 element.innerHTML = userInput;
@@ -276,12 +283,12 @@ Common DOM XSS **sources** to trace: `location.hash`, `location.search`,
 ## Prototype pollution
 
 ```js
-// FLAG: untrusted keys merged into an object
+// CANDIDATE: untrusted keys merged into an ordinary object
 function merge(t, s) {
   for (const k in s) t[k] = s[k];
-} // __proto__ / constructor
-_.merge(target, userInput); // lodash < 4.17.12
-$.extend(true, target, userInput); // jQuery deep extend
+} // keys such as __proto__ / constructor may affect prototypes, depending on semantics
+_.merge(target, userInput); // version-gate against the installed package's advisories
+$.extend(true, target, userInput); // version-gate; prove a polluted property reaches a sink
 
 // SAFE
 const obj = Object.create(null); // no prototype chain
@@ -304,30 +311,43 @@ const UserInput = z.object({ id: z.number(), name: z.string() });
 const input = UserInput.parse(req.body); // throws on bad input
 ```
 
-`function f(data: any)` bypasses type safety entirely — treat `any` on a request path
-as unvalidated input.
+`function f(data: any)` supplies no compile-time guarantee. Treat request data as
+untrusted until a runtime validator or equivalent guard is found; `any` alone is not a
+vulnerability.
 
 ---
 
-## Grep starters
+## Search starters
 
 Confirm hits by reading the code — these locate candidates, they don't prove bugs.
 
 ```bash
 # DOM XSS sinks
-grep -rn "innerHTML\|outerHTML\|document\.write\|insertAdjacentHTML" --include="*.{js,jsx,ts,tsx}"
+rg -n -g '*.{js,jsx,ts,tsx}' 'innerHTML|outerHTML|document\.write|insertAdjacentHTML'
 # React / Vue / Angular escape hatches
-grep -rn "dangerouslySetInnerHTML" --include="*.{jsx,tsx}"
-grep -rn "v-html" --include="*.vue"
-grep -rn "bypassSecurityTrust" --include="*.ts"
+rg -n -g '*.{jsx,tsx}' 'dangerouslySetInnerHTML'
+rg -n -g '*.vue' 'v-html'
+rg -n -g '*.ts' 'bypassSecurityTrust'
 # code execution
-grep -rn "eval(\|new Function(" --include="*.{js,ts}"
+rg -n -g '*.{js,ts}' 'eval\(|new Function\('
 # command injection
-grep -rn "child_process\|\bexec(\|execSync(\|spawn(" --include="*.{js,ts}"
+rg -n -g '*.{js,ts}' 'child_process|\bexec\(|execSync\(|spawn\('
 # SQL / NoSQL injection, SSRF, prototype pollution
-grep -rn "\.raw(\|\.query(\`" --include="*.{js,ts}"
-grep -rn '\$where\|\$regex\|findOne(req\.\|find(req\.' --include="*.{js,ts}"
-grep -rn "sendCommand\|\.eval(\|new ClassicLevel\|ClassicLevel\.destroy\|ClassicLevel\.repair" --include="*.{js,ts}"
-grep -rn "fetch(\|http\.get(\|axios(" --include="*.{js,ts}"
-grep -rn "__proto__\|constructor\[" --include="*.{js,ts}"
+rg -n -g '*.{js,ts}' '\.raw\(|\.query\(`'
+rg -n -g '*.{js,ts}' '\$where|\$regex|findOne\(req\.|find\(req\.'
+rg -n -g '*.{js,ts}' 'sendCommand|\.eval\(|new ClassicLevel|ClassicLevel\.destroy|ClassicLevel\.repair'
+rg -n -g '*.{js,ts}' 'fetch\(|http\.get\(|axios\('
+rg -n -g '*.{js,ts}' '__proto__|constructor\['
 ```
+
+## Authoritative references
+
+- [React DOM: `dangerouslySetInnerHTML`](https://react.dev/reference/react-dom/components/common#dangerously-setting-the-inner-html)
+- [Vue security guidance](https://vuejs.org/guide/best-practices/security)
+- [Angular security guidance](https://angular.dev/best-practices/security)
+- [OWASP Cross-Site Scripting Prevention Cheat Sheet](https://cheatsheetseries.owasp.org/cheatsheets/Cross_Site_Scripting_Prevention_Cheat_Sheet.html)
+- [Express query parser setting](https://expressjs.com/en/api.html#app.settings.table)
+- [Redis security](https://redis.io/docs/latest/operate/oss_and_stack/management/security/)
+- [Node.js `child_process`](https://nodejs.org/api/child_process.html)
+- [Node.js URL API](https://nodejs.org/api/url.html)
+- [Next.js environment variables](https://nextjs.org/docs/app/guides/environment-variables)

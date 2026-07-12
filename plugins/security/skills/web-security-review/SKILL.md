@@ -1,7 +1,7 @@
 ---
 name: web-security-review
 description: Security code review for JavaScript/TypeScript web applications. Use when asked to "security review", "find vulnerabilities", "check for security issues", "audit security", "OWASP review", "is this secure?", or to review Node/Express/React/Vue/Next/Nest/Angular code for database/storage security (SQL, MongoDB, Redis, LevelDB), XSS, authentication, authorization (IDOR/BOLA), SSRF, CSRF, deserialization, secrets, or crypto issues. Traces data flow, reasons like a security researcher, and reports only findings with concrete data-flow, exposure, or configuration proof — never confidence-scored guesses.
-allowed-tools: Read, Grep, Glob, Bash, Task
+allowed-tools: Read, Grep, Glob, Bash, Agent, WebFetch, WebSearch
 license: CC-BY-SA-4.0
 ---
 
@@ -88,6 +88,9 @@ front-load everything into context.
 - Detect frameworks and versions from `package.json` / lockfile (React, Vue,
   Angular, Express, Nest, Next, ORM/driver/ODM, Redis clients, LevelDB adapters, and
   validation libraries like `zod`/`joi`).
+- Verify version-sensitive framework, dependency, and vulnerability behavior against
+  primary sources: official project documentation, release notes/advisories, standards,
+  or NVD/CISA records. Do not rely on search snippets or third-party summaries.
 
 ### 2. Map the attack surface
 
@@ -130,10 +133,11 @@ also run [`references/oidc-sso-review.md`](./references/oidc-sso-review.md).
 
 Fast, high-value wins before the deep scan:
 
-- **Dependencies:** scan `package.json` + lockfile for known-vulnerable packages and
-  suspiciously old pins. When available and permitted, corroborate with
+- **Dependencies:** scan `package.json` + lockfile for known-vulnerable packages. When
+  available and permitted, corroborate with
   `npm audit --omit=dev` — but only report a dependency finding with a concrete,
-  reachable exploit path (an unreachable transitive CVE is INFO, not a vuln).
+  reachable exploit path; otherwise omit it from findings or put the missing
+  reachability fact under **Needs verification**.
 - **Secrets:** scan all files — including `.env`, config, CI/CD, Dockerfiles, IaC —
   for hardcoded API keys, tokens, private keys, and DB connection strings with
   embedded credentials. Real high-value secrets in source/logs are findings;
@@ -159,9 +163,10 @@ reveals.
 
 ### 6. Adversarial self-verification
 
-For each surviving candidate, **try to refute it** before it makes the report. For a
-non-trivial finding set, launch one `Task` sub-agent per candidate **in parallel**,
-each instructed to disprove exploitability using
+For each surviving candidate, **try to refute it** before it makes the report. When
+subagents are available and the candidate set is non-trivial, launch an independent
+validation pass for each candidate in parallel, instructing each reviewer to disprove
+exploitability using
 [`references/false-positives.md`](./references/false-positives.md):
 
 - Re-read the code with fresh eyes. Is it _actually_ reachable with attacker input?
@@ -194,12 +199,20 @@ edit files as part of the review unless the user explicitly asks.
 
 ## Severity
 
-| Severity     | Impact                           | Web examples                                                                                           |
-| ------------ | -------------------------------- | ------------------------------------------------------------------------------------------------------ |
-| **Critical** | Direct exploit, no auth required | RCE (`eval`/`child_process`/deserialization), SQLi to data, auth bypass, hardcoded live secret         |
-| **High**     | Exploitable with conditions      | Stored XSS, SSRF to cloud metadata, IDOR to another user's data, JWT `alg:none`                        |
-| **Medium**   | Needs specific conditions        | Reflected XSS, CSRF on a state-changing route, path traversal, open redirect (only with a proven path) |
-| **Low**      | Limited but demonstrable impact  | Low-sensitivity data exposure or minor boundary bypass with a concrete attacker path                    |
+Assign severity from the proven impact, attacker prerequisites, affected data or
+privilege, and scope — never from a sink name alone. Use these anchors:
+
+| Severity     | Anchor                                                                 |
+| ------------ | ---------------------------------------------------------------------- |
+| **Critical** | Pre-auth compromise of the application/host or similarly systemic loss |
+| **High**     | Major confidentiality/integrity loss or account takeover               |
+| **Medium**   | Meaningful but constrained security-boundary violation                  |
+| **Low**      | Limited, demonstrable impact with narrow scope                          |
+
+For example, raw-HTML rendering may be Low through High depending on who controls and
+views the content; SSRF may be Low through Critical depending on reachable targets and
+credentials; and a hardcoded value is not a finding until it is real, sensitive, and
+exposed. State the assumptions that drive severity.
 
 ## Output rules
 
@@ -218,7 +231,7 @@ Load on demand — keep SKILL.md context lean.
 
 | File                                                                               | Load during   | Covers                                                                                                                                                                           |
 | ---------------------------------------------------------------------------------- | ------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| [`references/javascript-web-patterns.md`](./references/javascript-web-patterns.md) | steps 2, 4, 6 | Framework catalog: React/Vue/Angular/Express/Next/Nest safe-vs-dangerous sinks, DOM XSS, prototype pollution, `zod` runtime validation, grep starters                            |
+| [`references/javascript-web-patterns.md`](./references/javascript-web-patterns.md) | steps 2, 4, 6 | Framework catalog: React/Vue/Angular/Express/Next/Nest safe-vs-dangerous sinks, DOM XSS, prototype pollution, `zod` runtime validation, search starters                          |
 | [`references/vuln-classes.md`](./references/vuln-classes.md)                       | steps 2, 4    | Per-class detection signals, safe patterns, escalation checkers (SQL/Mongo injection, Redis/LevelDB storage boundaries, per-ORM/ODM raw + SQLite, XSS, authz/mass-assignment, authn/session/JWT, SSRF, CSRF, deserialization, path traversal, crypto, secrets, info disclosure, business logic) |
 | [`references/false-positives.md`](./references/false-positives.md)                 | steps 3, 4, 6 | Attacker- vs server-controlled taxonomy, hard exclusions, precedents                                                                                                             |
 | [`references/self-hosting-hardening.md`](./references/self-hosting-hardening.md)   | conditional (deployment scope) | Network exposure, reverse-proxy/`trust proxy`/host-header trust, container/root, secrets in images, CORS, backups, brute-force posture |

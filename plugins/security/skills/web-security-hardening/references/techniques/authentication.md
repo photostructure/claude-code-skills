@@ -7,14 +7,36 @@ Harden the login and sensitive-action paths against high-volume automated attack
 ## Credential stuffing is not single-account brute force
 
 - Distinction: brute force tries many passwords against one account; credential stuffing replays known-valid username/password pairs (leaked elsewhere) across many accounts, so per-account lockout barely slows it — each account sees only one or two attempts while the attacker fans out over thousands. Password spraying is the inverse (one weak password against many accounts). MFA mitigates all three, but stuffing specifically demands volume/anomaly controls, not just lockout.
-- Primary defense — MFA: greppable gap is a login handler that issues a session/JWT immediately after the password check with no second-factor branch. Fix: require a phishing-resistant factor (passkey/WebAuthn) or at least TOTP before minting an authenticated session; prefer it for admin and high-risk accounts. This is the single highest-leverage control (OWASP's Credential Stuffing cheat sheet cites Microsoft's analysis that MFA would have stopped ~99.9% of account compromises).
-- Breached-credential check: greppable gap is signup/reset/login that validates only length/complexity and never consults a compromised-password corpus. Fix: check the candidate password against a breach set at registration, reset, and (risk-permitting) login. Use the HaveIBeenPwned Pwned Passwords range API with k-anonymity — send only the first 5 hex chars of the SHA-1 hash and match the suffix locally; never send the full password or full hash. Verify the current API host/version and hash prefix length against its docs before implementing.
-- Bot mitigation on abnormal volume: greppable gap is a login endpoint with no CAPTCHA/challenge and no IP/device signal. Fix: trigger a challenge (CAPTCHA, proof-of-work, or JS requirement) and weigh IP classification / geovelocity / device fingerprint reputation when volume or failure rate is anomalous. Do not rely on IP blocking alone — attackers rotate through proxy pools. Layer these; none is sufficient standalone.
+- MFA: require an appropriate additional factor or multi-factor authenticator for the
+  accounts and assurance level in scope; prefer phishing-resistant WebAuthn with the
+  required user-verification policy for privileged or high-impact access. A passkey may
+  replace the password rather than act as a literal “second factor.” MFA
+  materially limits reuse of a stolen password, but it does not replace throttling or
+  anomaly detection and should not be reported as a universal requirement without the
+  application's assurance profile.
+- Compromised-password check: at password establishment and change, compare the complete
+  candidate against a blocklist of common and compromised passwords. NIST requires this at
+  establishment/change, not on every login. If using the HIBP range API, follow its current
+  k-anonymity protocol (currently the first five SHA-1 hex characters, suffix matched
+  locally) and never send the password or full hash.
+- Risk-based bot controls: challenges and IP/device/network signals can supplement
+  throttling during anomalous traffic. Account for accessibility and privacy, and do not
+  make CAPTCHA or device fingerprinting an unconditional baseline gap.
 
 ## Throttle with a shared store; compare secrets in constant time
 
-- Greppable anti-pattern: an in-memory counter (a module-level `Map`/object, or `express-rate-limit` with no `store:`) — it resets on restart and does not span workers/instances, so a clustered or serverless deploy has effectively no limit. Fix: back the limiter with a shared store (Redis/Memcached) via `rate-limiter-flexible` or `express-rate-limit` with a distributed store adapter. Key the limiter on account identifier **and** client IP together (plus a global cap) so stuffing across many accounts still trips a ceiling and a single victim account is protected independently. Confirm the trusted client IP derives from a correctly configured proxy, not a spoofable `X-Forwarded-For`.
-- Greppable anti-pattern: `token === expected`, `apiKey == stored`, or `hmac !== sig` on a secret/MAC/reset-token — `===` short-circuits on the first differing byte and leaks length/prefix through timing. Fix: compare with `crypto.timingSafeEqual(a, b)`. It requires equal-length `Buffer`/`TypedArray`/`DataView` inputs and throws `RangeError` on a length mismatch, so guard lengths first (compare a fixed-size digest of each side, e.g. HMAC both values under a random key, rather than branching on `a.length === b.length` which itself leaks length). It is not for passwords — verify those against a slow salted hash (see `../identity-sessions-and-secrets.md`). Verify argument/throw behavior against the installed Node version.
+- An in-memory limiter resets on restart and each process/instance has an independent
+  counter. That can be acceptable for one long-lived process; clustered, serverless, and
+  horizontally scaled deployments need a store or edge control shared at the intended
+  scope. Apply **separate** per-account and per-network/client budgets, plus an aggregate
+  ceiling where useful; a single composite `account + IP` key is easy to evade by changing
+  either component. Trust `req.ip` only after configuring the proxy boundary correctly.
+- Use `crypto.timingSafeEqual` for fixed-length MACs, authentication tags, and comparable
+  secret values. Decode and validate their fixed format/length before comparison; the API
+  throws when byte lengths differ, and Node explicitly warns that it does not make
+  surrounding code timing-safe. Verify asymmetric digital signatures with
+  `crypto.verify` / `Verify.verify`, not a byte comparison. Do not use `timingSafeEqual`
+  for passwords—use the password-hash verifier.
 
 ## Step-up: re-prove presence on the sensitive request
 
@@ -28,3 +50,5 @@ Harden the login and sensitive-action paths against high-volume automated attack
 - [OWASP Multifactor Authentication Cheat Sheet](https://cheatsheetseries.owasp.org/cheatsheets/Multifactor_Authentication_Cheat_Sheet.html)
 - [Node.js crypto.timingSafeEqual](https://nodejs.org/api/crypto.html#cryptotimingsafeequala-b)
 - [HaveIBeenPwned Pwned Passwords range API](https://haveibeenpwned.com/API/v3#PwnedPasswords)
+- [NIST SP 800-63B — Password Verifiers](https://pages.nist.gov/800-63-4/sp800-63b.html#passwordver)
+- [RFC 6238 §5.2 — TOTP validation and replay](https://www.rfc-editor.org/rfc/rfc6238.html#section-5.2)

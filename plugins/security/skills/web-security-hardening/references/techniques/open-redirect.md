@@ -24,9 +24,10 @@ origin (phishing, token/OAuth-code theft, filter evasion).
   the mismatch only records an `invalid-reverse-solidus` **validation error**, which the
   spec defines as **non-fatal** — parsing continues and `\` becomes `/`. So `/\evil.com`
   resolves to authority `evil.com`.
-- Do not add `\` to a denylist and call it fixed. Also treated as authority separators or
-  stripped by various parsers/browsers: leading control/whitespace (`\t \n \r`),
-  `%2f`/`%5c`, and mixed forms. Denylisting each variant is a losing game — parse instead.
+- Do not grow a separator denylist. WHATWG parsing trims or ignores certain leading
+  controls, while percent-encoded separators normally remain path data unless another
+  component decodes them. Define one parser/decoding boundary and redirect using the
+  validated parsed result so a downstream parser cannot reinterpret the raw candidate.
 - Verify normalization against the installed runtime: browsers, Node's WHATWG `URL`, and
   the legacy `url.parse()` differ. `url.parse()` is deprecated (legacy API) and normalizes
   differently from `new URL()`; use the WHATWG `URL` parser and confirm behavior on the
@@ -40,6 +41,8 @@ origin (phishing, token/OAuth-code theft, filter evasion).
   Passing `appOrigin` as the base makes a genuine relative path (`/dashboard`) resolve to
   your origin while `//evil.com`, `/\evil.com`, `https://evil.com`, and
   `https://mysite.com.evil.com` all resolve to a different `origin` and are rejected.
+- After validation, pass the canonical parsed URL (or its validated relative path) to the
+  redirect API—not the original raw string—so validation and navigation use one parse.
 - Compare `.origin` (scheme+host+port), not `.hostname` alone (misses scheme downgrade and
   port), and not `.host` as a substring. Reject credential-bearing (`user:pass@`) and
   non-`http(s)` schemes (`javascript:`, `data:`) explicitly.
@@ -53,9 +56,11 @@ origin (phishing, token/OAuth-code theft, filter evasion).
   begin with a single `/` (not `//` or `/\`), reject after normalization, and prepend your
   own origin. Do not maintain an allowlist of external hosts unless the feature genuinely
   requires off-site redirects.
-- For OAuth/SSO `redirect_uri` and `state`-carried returns, match against a
-  pre-registered exact-URL allowlist server-side; these carry codes/tokens and are prime
-  targets.
+- For OAuth authorization requests, follow the current OAuth security BCP: match
+  `redirect_uri` against pre-registered values using exact string comparison (subject to
+  the narrow native-app rules). If application `state` data contains a post-login return
+  target, authenticate/bind the state and validate that target separately; `state` is not
+  itself a redirect-URI registration mechanism.
 
 See ../input-output-and-files.md (URLs, redirects, and outbound requests) and
 ../../ATTRIBUTION.md.
@@ -64,3 +69,4 @@ See ../input-output-and-files.md (URLs, redirects, and outbound requests) and
 
 - [OWASP Unvalidated Redirects and Forwards Cheat Sheet](https://cheatsheetseries.owasp.org/cheatsheets/Unvalidated_Redirects_and_Forwards_Cheat_Sheet.html)
 - [WHATWG URL Standard](https://url.spec.whatwg.org/)
+- [RFC 9700 — OAuth 2.0 Security Best Current Practice](https://www.rfc-editor.org/rfc/rfc9700.html)

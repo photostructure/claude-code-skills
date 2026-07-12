@@ -46,9 +46,10 @@ across versions and some are silent-drop vs. throw.
 - **NestJS:** register `ValidationPipe({ whitelist: true, forbidNonWhitelisted: true })`
   with class-validator DTOs — `whitelist` strips properties that have no validation
   decorator; `forbidNonWhitelisted` rejects the request instead. Anti-pattern: no global/
-  route ValidationPipe, a DTO with undecorated privileged fields, or `@Body()` bound to the
-  entity. Caveat: this is an input-shape filter, NOT authorization — a decorated but
-  privileged field still passes; keep such fields out of the DTO and set them server-side.
+  route ValidationPipe, a DTO that decorates or `@Allow()`s privileged fields, or `@Body()`
+  bound to the entity. Caveat: this is an input-shape filter, NOT authorization — an
+  allowlisted but privileged field still passes; keep such fields out of the DTO and set
+  them server-side.
 
 See ../input-output-and-files.md ("Structured input and assignment") for DTO mapping and
 ../identity-sessions-and-secrets.md for the ownership/authorization checks these fields feed.

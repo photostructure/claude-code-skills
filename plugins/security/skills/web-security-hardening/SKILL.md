@@ -15,6 +15,10 @@ Use OWASP ASVS 5.0.0 as the pinned requirements backbone. Use OWASP Cheat Sheets
 current framework/library documentation, MDN, and NIST SP 800-63B-4 to explain and
 implement controls. See [ATTRIBUTION.md](./ATTRIBUTION.md).
 
+Call the result an **ASVS-guided hardening review**, not ASVS compliance or
+certification, unless every requirement at the selected level has been enumerated,
+assessed for applicability, and supported by the evidence ASVS requires.
+
 ## Boundary with vulnerability review
 
 Keep this skill separate from `web-security-review`:
@@ -38,9 +42,9 @@ not mix it into hardening counts.
 - **Effective behavior over package presence.** `helmet()` installed, a schema library
   imported, or a proxy named in docs is not proof that the control applies to every
   relevant route in the shipped configuration.
-- **Research globally, report locally.** Read the whole repository to resolve middleware,
+- **Research beyond report scope when needed.** Trace relevant callers, middleware,
   framework defaults, deployment config, and shared helpers; report only on the scope
-  requested by the user.
+  requested by the user. Do not load unrelated monorepo areas merely for completeness.
 - **Credit framework protections.** Mark a control Met when a detected framework/version
   provides it effectively and no bypass disables it.
 - **No cargo-cult controls.** Record Not applicable when a control has no relevant
@@ -120,6 +124,8 @@ Read [`references/baseline-and-reporting.md`](./references/baseline-and-reportin
 
 Pin reports to **OWASP ASVS 5.0.0**. Cite a versioned ASVS requirement ID only after
 verifying the exact ID against the official 5.0.0 source; never infer or invent IDs.
+Selecting Level 2 also selects its MFA requirements; do not silently downgrade them
+because MFA is uncommon in the reviewed product.
 
 ### 4. Select applicable domains
 
@@ -168,9 +174,11 @@ Use this structure:
 **Baseline:** OWASP ASVS 5.0.0 Level <1|2|3>
 **Assumptions:** <unresolved threat-model facts>
 
-### Coverage Summary
+### Assessed-Control Summary
 | Domain | Met | Gap | Needs verification | Not applicable |
 |--------|----:|----:|-------------------:|---------------:|
+
+**Coverage limitation:** <ASVS-guided subset, or complete requirement-by-requirement assessment>
 
 ### Essential Gaps
 #### [HARDEN-001] <control> — Gap
@@ -207,7 +215,8 @@ Only concrete exploit candidates, excluded from hardening counts.
 ```
 
 If no gaps remain, say which profile/baseline was assessed and that all applicable
-controls examined were Met; still list unresolved verification questions.
+controls **examined** were Met; do not imply that unexamined ASVS requirements passed.
+Still list unresolved verification questions.
 
 ## Source freshness
 

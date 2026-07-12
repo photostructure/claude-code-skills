@@ -13,43 +13,38 @@ Anti-pattern to grep: `fetch(req.body.url)`, `axios.get(userUrl)`, `http.get(tar
 hostname allowlist alone is not enough — an attacker-controlled host can resolve into
 any range.
 
-- Fix: after resolving (see next section), reject the request if the resolved IP falls in
-  any blocked range. Deny at minimum: cloud metadata `169.254.169.254` and all
-  link-local `169.254.0.0/16` (and `fe80::/10`); loopback `127.0.0.0/8` and `::1/128`;
-  `0.0.0.0/8`; RFC1918 `10.0.0.0/8`, `172.16.0.0/12`, `192.168.0.0/16`; unique-local
-  `fc00::/7`; and IPv4-mapped IPv6 (`::ffff:0:0/96`, e.g. `::ffff:169.254.169.254`).
-  Normalize mapped/compressed IPv6 before the range test so a mapped form cannot smuggle
-  a blocked v4 address past a v4-only check.
+- Prefer an allowlist of destinations when the business function permits it. Otherwise,
+  resolve and reject every address that is not globally routable for the intended service,
+  including loopback, private, link-local/metadata, unspecified, multicast, reserved, and
+  IPv4-mapped IPv6 forms. A hand-maintained list containing only RFC1918 and
+  `169.254.169.254` is incomplete; use a maintained parser/classifier and test IPv4, IPv6,
+  compressed, mapped, and alternate textual forms.
 - Cloud metadata uses the same `169.254.169.254` on AWS / GCP / Azure; GCP also serves
   `metadata.google.internal`. Prefer an outbound egress firewall / NAT policy as the
   authoritative control — app-layer checks are defense-in-depth, not a substitute.
   Verify current metadata addresses and any provider-specific hostnames against the
   installed cloud's live docs.
-- Use a well-maintained IP-range library (e.g. `ipaddr.js`) rather than hand-rolled
-  string/CIDR math, and verify it classifies IPv4-mapped and compressed IPv6 as you
-  expect. Do not rely on the `ip` (node-ip) package for SSRF decisions: its
-  `isPrivate`/`isPublic` have documented classification bypasses for non-decimal and
-  otherwise unusual IP notations (CVE-2023-42282 and related unresolved issues), and the
-  package is effectively unmaintained — confirm the current status of any library before
-  trusting it.
+- Use a maintained IP parser/classifier rather than hand-rolled string/CIDR math. Test the
+  pinned library against mapped/compressed IPv6 and alternate IPv4 notations; package names
+  and a passing `isPrivate()` call are not proof of complete classification.
 
-## Resolve once, pin, connect to the pinned IP (DNS rebinding)
+## Validate the address used by the connection
 
 Anti-pattern to grep: validation runs on the URL/hostname string, then a separate
 `fetch`/`axios`/`got` call re-resolves DNS. Between the two lookups the attacker's DNS
 can flip to `169.254.169.254` (TOCTOU / DNS rebinding), so the connection reaches an
 internal address the check never saw.
 
-- Fix: resolve the hostname yourself once (all A + AAAA records), validate every returned
-  IP against the block ranges, then connect to that pinned IP — do not let the HTTP client
-  resolve again. Validate at socket/connection time, not only at URL-parse time.
-- Named lever in Node: supply a custom `lookup` function (the `dns.lookup` signature,
-  accepted by the core `http`/`https` agent and by `got`/`axios` via a custom agent) that
-  performs the check and returns the validated address; or validate in the socket
-  `lookup`/`connect` event and destroy the socket on a blocked IP. Confirm the exact
-  option name and that it fires per-connection in your installed client version.
-- Keep the IP pinned for the whole request (including keep-alive reuse); short/zeroed
-  DNS TTLs are an attacker signal, not a reason to re-resolve mid-request.
+- Validate at the actual connection boundary so the address checked is the address used.
+  A custom `lookup` can do this for Node `http`/`https`, but its callback may select one
+  address rather than expose every A/AAAA record, and third-party clients/Undici use
+  different dispatcher/agent hooks. Verify the exact client and retry behavior.
+- If pre-resolving and pinning manually, validate all candidate A/AAAA answers, connect to
+  an approved address, and preserve the original hostname for the HTTP `Host` header and
+  TLS SNI/certificate verification. Replacing the URL hostname with an IP without doing so
+  can break virtual hosting or tempt code to disable certificate verification.
+- Reused keep-alive sockets do not perform another lookup; ensure they were created through
+  the validated connection path. Apply the same validation to each new connection/retry.
 
 ## Re-validate every redirect hop; allowlist schemes and hosts
 
@@ -73,3 +68,5 @@ Anti-pattern to grep: a client with default redirect following (`maxRedirects` >
 - [AWS EC2 Instance Metadata Service (IMDS)](https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/instancedata-data-retrieval.html)
 - [GCP metadata server](https://cloud.google.com/compute/docs/metadata/overview)
 - [Azure Instance Metadata Service](https://learn.microsoft.com/en-us/azure/virtual-machines/instance-metadata-service)
+- [Node.js HTTP `lookup` option](https://nodejs.org/api/http.html#httprequestoptions-callback)
+- [Node.js TLS `servername` option](https://nodejs.org/api/tls.html#tlsconnectoptions-callback)

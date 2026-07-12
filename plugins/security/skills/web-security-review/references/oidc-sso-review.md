@@ -1,8 +1,7 @@
 <!--
 OIDC / OAuth / SSO review checklist. See ../ATTRIBUTION.md.
-Synthesized from the OWASP Authentication Cheat Sheet, RFC 9700 (OAuth 2.0 Security
-BCP), the PortSwigger OAuth guidance, and public account-takeover CVEs in self-hosted
-apps (Coder, Vaultwarden, Nhost, Roadiz, express-openid-connect). CC BY-SA 4.0.
+Synthesized from OpenID Connect Core, RFC 9700 (OAuth 2.0 Security BCP), RFC 9207,
+RFC 8252, OWASP guidance, and upstream security advisories. CC BY-SA 4.0.
 -->
 
 # OIDC / OAuth / SSO Review
@@ -21,45 +20,57 @@ session, or account impact. Drop a checklist miss that cannot pass the proof gat
 ## A. Redirect URI validation
 
 - [ ] Authorization server validates `redirect_uri` by **exact string match** against a
-      registered allowlist — not prefix match, not "same domain", not regex.
+      registered allowlist — not prefix match, not "same domain", not regex. The RFC
+      8252 exception is a native app's loopback redirect, where only the ephemeral port
+      may vary; it is not an exception for ordinary web clients.
 - [ ] No open redirect on an allowlisted host that could be chained
       (`https://trusted//evil.com` path tricks — cf. express-openid-connect
       CVE-2022-24794).
 - [ ] **The app's own post-login redirect** (`?next=`/`returnTo`/`redirect`, or a
-      `returnTo` carried inside `state`) is allowlist-validated to a local path. An open
-      redirect here forwards the just-issued code/token to an attacker → account
-      takeover, even with a perfectly locked-down `redirect_uri`. Reject absolute URLs
-      and protocol-relative `//host` values.
-- [ ] `localhost`/dev redirect URIs aren't permitted in production config.
+      `returnTo` carried inside `state`) is validated against a local-destination
+      policy. An open redirect is prohibited by RFC 9700, but does not automatically
+      leak a code or token. Prove whether token-bearing query/fragment data is
+      preserved, an OAuth redirect URI can be chained through it, or the only impact
+      is phishing. Reject absolute URLs and protocol-relative `//host` values after
+      parsing and require the expected origin/path policy.
+- [ ] Loopback redirects are used only for native-app clients and follow RFC 8252
+      (loopback IP literal recommended, exact path match, variable port allowed).
 
 ## B. State (CSRF) and nonce (replay)
 
-- [ ] `state` is generated per-request, unguessable, **bound to the browser session**
-      (cookie/session-stored), and validated on callback. Its absence lets an attacker
-      log a victim into the *attacker's* account (login CSRF).
-- [ ] `nonce` is generated, **persisted** (session/cache), sent in the auth request, and
-      the returned ID token's `nonce` is compared to the stored value. **Confirm a stored
-      value actually exists** — the recurring real bug (Roadiz GHSA-3gx8-q682-38mx) is
-      generating a nonce, sending it, and never storing it, so the check is a no-op.
+- [ ] The client uses a valid transaction-bound CSRF mechanism. RFC 9700 permits a
+      client to rely on correctly enforced PKCE when it has established authorization-
+      server support; otherwise use a one-time `state` bound to the user agent, or an
+      OIDC `nonce` under the RFC's conditions. Do not report missing `state` when PKCE
+      or `nonce` demonstrably supplies the required binding.
+- [ ] When `nonce` is used, it is transaction-specific, **persisted** (session/cache),
+      sent in the authentication request, and compared with the returned ID token's
+      claim. Confirm a stored expected value exists; generating and sending a nonce
+      without retaining it cannot validate the response.
 - [ ] **Unsolicited / IdP-initiated responses are rejected.** A callback with no matching
-      **stored** `state` (i.e. the RP never started this flow) must be refused — there's
-      no session baseline, so nonce/PKCE/state all vanish. "Accept a login the app never
-      initiated" is a login-CSRF / token-injection foothold.
+      stored transaction (`state`, PKCE verifier, or nonce as applicable) must be
+      refused unless the application deliberately implements a separately secured
+      IdP-initiated protocol. Do not assume one particular transaction mechanism.
 
 ## C. ID token validation
 
 - [ ] Signature verified against the IdP's JWKS via a real library
       (`openid-client`/`jose`), **not** a hand-rolled `jwt.decode()`. An ID token alone is
-      not proof — signature **and** `iss` **and** `aud` **and** `exp` **and** `nonce` must
-      all be checked.
+      not proof — validate signature, `iss`, `aud`, and `exp`, plus `nonce` when one was
+      sent. Apply the precise OpenID Connect validation rules for the flow and token
+      endpoint; do not replace them with a generic JWT checklist.
 - [ ] `iss` and `aud` claims checked (and `azp` when the token has multiple audiences);
-      algorithm **pinned** (don't trust the token header's `alg`).
-- [ ] `exp` enforced with only small clock-skew tolerance; `iat`/`nbf` sane. Don't accept
-      long-lived or already-expired ID tokens.
-- [ ] Keys come from the IdP's **discovery/JWKS endpoint**, never from a URL or `kid`
-      supplied in the token header (`jku`/`x5u` injection → key confusion / SSRF).
-- [ ] Multi-IdP setups defend against mix-up (RFC 9207 `iss` param, or a distinct
-      redirect URI per IdP) so an IdP-A token can't be replayed on the IdP-B flow.
+      allowed algorithms follow trusted client/issuer metadata or explicit application
+      configuration rather than the token header's `alg` alone.
+- [ ] `exp` is enforced with bounded clock-skew tolerance; validate `iat`/`nbf` when
+      present and security-relevant to the library/profile.
+- [ ] Keys come from the trusted issuer's configured/discovered **JWKS endpoint**.
+      Header `kid` may select a key only within that trusted set; attacker-controlled
+      `jku`/`x5u` or a `kid` used as a URL/file path can create key confusion, traversal,
+      or SSRF.
+- [ ] Multi-IdP setups defend against mix-up by validating RFC 9207 `iss` (or another
+      authorization-response issuer signal as RFC 9700 permits), or by using and
+      checking a distinct redirect URI per issuer.
 
 ## D. Account linking / email trust — highest-impact self-hosted bug class
 
@@ -67,28 +78,33 @@ session, or account impact. Drop a checklist miss that cannot pass the proof gat
       alone**.
 - [ ] If email is a linking fallback, `email_verified` is checked **and fails closed** —
       a missing, non-boolean, or string `"false"` value is treated as *unverified*. This
-      exact type-coercion bug caused **Coder CVE-2026-55075/55076** and the **Nhost**
-      advisory.
+      type/coercion failure appears in **Coder CVE-2026-55076**; the **Nhost** advisory
+      demonstrates the broader fail-open class, where provider adapters ignored or
+      incorrectly manufactured email-verification status. Also verify that the issuer
+      is explicitly trusted and that its documented `email_verified` semantics establish
+      the assurance the application assumes; strict boolean handling cannot make an
+      arbitrary or misconfigured IdP trustworthy.
 - [ ] Auto-linking an OIDC identity to an **existing local-password account** requires an
       explicit confirmation while already authenticated, or 2FA on that account — silent
       link-by-email lets an attacker with a matching (or spoofable-unverified) IdP email
       take over a pre-existing account (**Vaultwarden GHSA-6x5c-84vm-5j56**).
 - **Detect in code:** `findOrCreate({ where: { email: claims.email } })` (or equivalent)
-  sourced from ID-token claims with no strict `email_verified === true` guard and no
-  check for an existing different-provider link.
+  sourced from ID-token claims with no trusted-issuer policy, no strict
+  `email_verified === true` guard, or no check for an existing different-provider link.
 
 ## E. PKCE
 
-- [ ] PKCE (`code_challenge`/`code_verifier`) used for public/SPA clients (no secret),
-      where interception or code injection provides a concrete attack path. RFC 9700
-      recommends PKCE for confidential clients too, but omission alone is not a finding
-      when a server-side client secret and the rest of the flow prevent code redemption
-      or injection; prove those preconditions individually.
+- [ ] Public clients use PKCE with `S256`; RFC 9700 requires this. Confidential clients
+      should use PKCE too; a confidential OIDC client may instead use the specified
+      nonce-based precautions. Report an omission only after proving the applicable
+      client type/flow and code-injection or redemption consequence.
 
 ## F. Token leakage
 
-- [ ] Implicit flow (`response_type=token`) is **not** used — tokens land in URL
-      fragments, history, and `Referer`.
+- [ ] Implicit flow (`response_type=token`) is avoided. RFC 9700 recommends code flow
+      because access tokens issued in authorization responses have additional leakage,
+      injection, and replay exposure. Do not claim URL fragments are sent in HTTP
+      `Referer` headers; identify the actual leakage mechanism in this application.
 - [ ] Tokens aren't logged; callback/reset pages set `Referrer-Policy: no-referrer` if
       they can link out or load third-party resources.
 
@@ -104,26 +120,31 @@ session, or account impact. Drop a checklist miss that cannot pass the proof gat
 ## H. Token type & misuse (the most common integration error)
 
 ID token = **authentication** (who the user is, audience = the client). Access token =
-**authorization** (what the bearer may call, audience = an API). They arrive together and
-both are JWTs, so they get swapped — insecurely.
+**authorization** (what the bearer may call, normally intended for a resource server).
+They are often handled together, but an access token may be opaque or a JWT; do not infer
+token purpose from serialization.
 
-- [ ] **The user's identity is taken from the validated *ID token***, not from an access
-      token. Treating a bearer access token as proof of identity is a real gap: it isn't
-      audience-bound to this client and its claims aren't meant for authentication.
+- [ ] **The user's identity comes from validated OIDC identity data**: an ID token, or a
+      UserInfo response whose `sub` exactly matches the ID token. Do not treat arbitrary
+      access-token claims as an ID token; access-token validation is profile/API-
+      specific and its audience is normally the resource server, not the client.
 - [ ] **The ID token is not sent to APIs as a bearer credential**, and an inbound access
-      token is validated for **`aud` = this API** before it's trusted (stops token
-      pass-through / confused-deputy from another service's token).
+      token is validated as intended for this API according to its profile (`aud` when
+      applicable, or authoritative introspection) before it is trusted.
 - [ ] **`openid` scope is actually requested** (else no ID token is issued and code tends
       to fall back to trusting the access token / userinfo).
 - [ ] **Userinfo response**, if used, is fetched over TLS with the access token and its
       `sub` is checked to match the ID token's `sub` — not trusted as a standalone
       identity.
-- [ ] Refresh tokens (if used) are rotated, revocable, and stored server-side / in an
-      httpOnly cookie — never in `localStorage` (see `vuln-classes.md` → JWT).
+- [ ] Refresh tokens issued to public clients are sender-constrained or rotated as RFC
+      9700 requires. Verify storage against the client architecture; browser storage
+      readable by application JavaScript increases XSS theft impact, while an httpOnly
+      cookie introduces ambient-credential/CSRF considerations.
 
 ## Sources
 
 - [RFC 9700 — OAuth 2.0 Security Best Current Practice](https://datatracker.ietf.org/doc/rfc9700/)
-- [OWASP Authentication Cheat Sheet](https://cheatsheetseries.owasp.org/cheatsheets/Authentication_Cheat_Sheet.html) · [PortSwigger — OAuth 2.0 vulnerabilities](https://portswigger.net/web-security/oauth)
-- [GitGuardian — OIDC for developers: why your auth integration could be broken](https://blog.gitguardian.com/oidc-for-developers-auth-integration/) · [Auth0 — ID token vs access token](https://auth0.com/blog/id-token-access-token-what-is-the-difference/) · [HackTricks — OAuth to account takeover](https://book.hacktricks.xyz/pentesting-web/oauth-to-account-takeover)
-- CVEs: [Coder CVE-2026-55075/55076](https://advisories.gitlab.com/golang/github.com/coder/coder/v2/CVE-2026-55076/) · [Vaultwarden GHSA-6x5c-84vm-5j56](https://github.com/dani-garcia/vaultwarden/security/advisories/GHSA-6x5c-84vm-5j56) · [Nhost GHSA-6g38-8j4p-j3pr](https://github.com/nhost/nhost/security/advisories/GHSA-6g38-8j4p-j3pr) · [Roadiz GHSA-3gx8-q682-38mx](https://github.com/roadiz/core-bundle-dev-app/security/advisories/GHSA-3gx8-q682-38mx) · [express-openid-connect GHSA-7p99-3798-f85c](https://github.com/auth0/express-openid-connect/security/advisories/GHSA-7p99-3798-f85c) · [feathersjs GHSA-ppf9-4ffw-hh4p (OAuth callback open redirect)](https://github.com/feathersjs/feathers/security/advisories/GHSA-ppf9-4ffw-hh4p)
+- [OpenID Connect Core 1.0 incorporating errata set 2](https://openid.net/specs/openid-connect-core-1_0.html)
+- [RFC 9207 — OAuth 2.0 Authorization Server Issuer Identification](https://datatracker.ietf.org/doc/html/rfc9207) · [RFC 8252 — OAuth 2.0 for Native Apps](https://datatracker.ietf.org/doc/html/rfc8252)
+- [OWASP Authentication Cheat Sheet](https://cheatsheetseries.owasp.org/cheatsheets/Authentication_Cheat_Sheet.html)
+- Upstream advisories: [Coder CVE-2026-55076 / GHSA-75vm-6w67-gwvp](https://github.com/coder/coder/security/advisories/GHSA-75vm-6w67-gwvp) · [Vaultwarden GHSA-6x5c-84vm-5j56](https://github.com/dani-garcia/vaultwarden/security/advisories/GHSA-6x5c-84vm-5j56) · [Nhost GHSA-6g38-8j4p-j3pr](https://github.com/nhost/nhost/security/advisories/GHSA-6g38-8j4p-j3pr) · [Roadiz GHSA-3gx8-q682-38mx](https://github.com/roadiz/core-bundle-dev-app/security/advisories/GHSA-3gx8-q682-38mx) · [express-openid-connect GHSA-7p99-3798-f85c](https://github.com/auth0/express-openid-connect/security/advisories/GHSA-7p99-3798-f85c) · [feathersjs GHSA-ppf9-4ffw-hh4p](https://github.com/feathersjs/feathers/security/advisories/GHSA-ppf9-4ffw-hh4p)

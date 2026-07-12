@@ -2,7 +2,8 @@
 
 # NoSQL / Operator Injection (MongoDB)
 
-Attacker-controlled objects that reach a query become operators, not values — turning a lookup into a filter bypass or, via server-side JS, RCE.
+Attacker-controlled objects that reach a query can become operators rather than values,
+turning a lookup into a filter bypass or attacker-controlled database-side JavaScript.
 
 ## Query strings deserialize into operators
 
@@ -22,18 +23,19 @@ Attacker-controlled objects that reach a query become operators, not values — 
 
 ## Validate scalars; build allowlisted filters
 
-- Expected equality values must be primitives. Reject `typeof value === "object"` (which
-  also catches arrays) before building the filter, or coerce with a runtime schema
-  (`zod`, `joi`, `ajv`) that pins the type to string/number.
-- Construct the filter from named, allowlisted fields — `{ email: String(email) }` — never
+- Expected equality values must be primitives. Parse with a runtime schema that requires
+  the intended type and rejects objects/arrays; avoid coercing arbitrary objects with
+  `String(value)`, which can run attacker-influenced conversion hooks in non-JSON sources.
+- Construct the filter from named, validated fields—`{ email }` after schema parsing—never
   pass a whole request object as a filter, projection, sort, update, or aggregation stage.
 - Anti-pattern to grep: `find(`/`updateOne(`/`aggregate([`/`sort(` whose argument is a
   request object or an un-narrowed value; `$in`/`$or` arrays sourced straight from input.
 
-## `$where` / `$function` execute JavaScript (RCE)
+## `$where` / `$function` execute database-side JavaScript
 
-- `$where` and `$function` (and `$accumulator`) run arbitrary JavaScript against each
-  document — this is code execution, not just filter bypass. Never build these from input,
+- `$where`, `$function`, and `$accumulator` execute JavaScript inside MongoDB. Attacker-
+  controlled bodies can cause query manipulation and resource consumption; do not equate
+  this automatically with operating-system command execution. Never build these from input,
   and never accept them from a request-supplied filter.
 - Fix: disable server-side JS on the server where the feature is unused —
   `security.javascriptEnabled: false` (or `mongod --noscripting`). Prefer `$expr` with
@@ -43,9 +45,9 @@ Attacker-controlled objects that reach a query become operators, not values — 
 
 ## "We use Mongoose" is not automatic safety
 
-- Mongoose casts query values to schema types, which neutralizes many operator payloads —
-  but casting is bypassed by `Schema.Types.Mixed` fields, `strict: false`, and `$where`,
-  and it does not sanitize raw operator keys you pass through yourself.
+- Mongoose casting and `sanitizeFilter` can provide defense-in-depth, but neither replaces
+  boundary validation and explicit filter construction. Confirm `sanitizeFilter`,
+  `strictQuery`, and update behavior against the installed major.
 - `strict` (default on) drops undeclared fields on **save**; it does not vet query filters.
   Query-side filtering of unknown keys is governed by `strictQuery`, whose default has
   changed across major versions — verify the `strict`/`strictQuery` defaults against your
@@ -61,4 +63,5 @@ Attacker-controlled objects that reach a query become operators, not values — 
 - [MongoDB Manual — `$where` operator](https://www.mongodb.com/docs/manual/reference/operator/query/where/)
 - [MongoDB Manual — `security.javascriptEnabled` / server-side JavaScript](https://www.mongodb.com/docs/manual/reference/configuration-options/#mongodb-setting-security.javascriptEnabled)
 - [Mongoose — Schemas Guide (`strict`, `strictQuery`, Mixed)](https://mongoosejs.com/docs/guide.html)
+- [Mongoose — `sanitizeFilter`](https://mongoosejs.com/docs/api/mongoose.html#Mongoose.prototype.sanitizeFilter())
 - [Express — Migrating to v5 (`query parser` default changes to "simple")](https://expressjs.com/en/guide/migrating-5/)

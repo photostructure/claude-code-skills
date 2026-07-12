@@ -2,7 +2,8 @@
 
 # Fail Closed on Exceptional Conditions
 
-A security control that throws, times out, or loses a dependency must deny, not default to allow.
+Authentication and authorization failures must not fall through to a protected action.
+For ancillary controls, define a secure degradation policy that also considers availability.
 
 ## Fail-open shapes to grep for
 
@@ -11,8 +12,9 @@ Every security decision has an error path; the review question is where that pat
 - Auth/authz middleware whose `catch` (or validation-miss branch) calls `next()` with no
   argument, `return next()`, or drops through to the handler. Grep middleware for
   `catch` blocks that reach `next()` instead of `next(err)`, `res.status(401/403)`, or a
-  thrown error. Fix: on any exception the branch must short-circuit with a 401/403 and
-  never invoke the downstream handler.
+  thrown error. Fix: the branch must not invoke the protected handler. Return `401` for
+  missing/invalid authentication, `403` for an understood but disallowed request, or a
+  generic `5xx` when the security service failed; do not mislabel an outage as bad credentials.
 - A JWT / webhook-signature / HMAC verify wrapped in `try/catch` that returns a truthy or
   default value on failure — `catch { return true }`, `catch { return decoded ?? {} }`,
   `catch { return user }`, or `.verify(...).catch(() => defaultClaims)`. Fix: verification
@@ -20,11 +22,12 @@ Every security decision has an error path; the review question is where that pat
   default. Use the library's throwing verify (e.g. `jwt.verify`, `crypto.timingSafeEqual`
   for signatures) and let the error propagate — verify the throwing-vs-returning contract
   against the installed library version.
-- Unhandled promise rejection in async middleware that bypasses the error path. Grep for
+- Unhandled promise rejection in async middleware that misses the intended error path. Grep for
   `async` route/guard handlers with no surrounding rejection capture, `.then()` without
   `.catch()`, and `await` on a verify call that is not inside the deny-on-throw path. A
-  rejected promise that is never routed to the error handler can leave the request
-  proceeding. Fix: ensure async guards are wrapped so rejections reach the framework error
+  rejected promise that is never routed to the error handler can hang the request or reach
+  process-level rejection handling; it does not inherently authorize the request. Fix:
+  ensure async guards are wrapped so rejections reach the framework error
   handler (Express 5 forwards async rejections; Express 4 needs an async wrapper — confirm
   the installed major) and that the error handler denies rather than falling through.
 
@@ -33,23 +36,23 @@ Every security decision has an error path; the review question is where that pat
 A control that consults an external system inherits that system's availability as a
 security property.
 
-- Rate limiter backed by Redis/Memcached that, on connection error or timeout, allows the
-  request through unthrottled. Grep the limiter's error/`onError`/store-failure hook and
-  any `catch` around the store call for a path that returns "allowed". Fix: on store
-  failure the limiter must block or degrade to a conservative local limit — set the
-  library's fail-closed lever explicitly rather than relying on its default (many limiters
-  fail open by default; confirm the flag name and default in the installed version).
+- Rate limiter backed by Redis/Memcached that silently allows unlimited traffic on store
+  failure. Choose the outage policy from the endpoint's abuse and availability risk:
+  deny/defer expensive or authentication-sensitive operations, or fall back to a bounded
+  local/edge limit. A universal “block everything” policy can turn the limiter dependency
+  into an availability kill switch. Verify and test the installed library's store-error path.
 - Auth provider / OIDC / token-introspection / policy-store (OPA, feature-flag, entitlement
   service) outage where the guard treats "cannot reach the decision point" as allow. Grep
   for `catch`/timeout branches around introspection, JWKS fetch, or policy evaluation that
   return `allow`, `true`, or a cached-permissive default. Fix: an unreachable authorizer is
-  a deny; only serve from cache within an explicit, bounded, signed-freshness window, never
-  as an open-ended fallback.
+  not an implicit allow. Use cached decisions only under an explicit bounded TTL/staleness
+  policy whose integrity and revocation tradeoffs fit the authorization system.
 
 ## Fix: deny on any error in a security decision
 
-- On any exception, timeout, or missing input inside a security decision, the outcome is
-  DENY. The error handler returns 4xx/5xx; the request does not reach the protected action.
+- On an exception, timeout, or missing required input inside authentication or
+  authorization, do not execute the protected action. Separate that invariant from the
+  HTTP status and availability policy used for ancillary controls such as rate limiting.
 - Verification functions raise (or return an explicit `false`) — they never return a
   permissive default, a partially populated identity, or an empty-but-truthy object.
 - Logging or alerting a control failure is NOT failing closed. An observed-and-logged

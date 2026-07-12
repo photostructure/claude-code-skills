@@ -9,7 +9,11 @@ Enforce that the authenticated principal may act on *this* object and *this* ope
 The greppable tell is a handler that takes a client-supplied id and loads the record without any owner/tenant predicate: `findById(req.params.id)`, `WHERE id = :id` alone, `getObject({ id })`, or a route that returns another user's data when the id is swapped. Derive the principal from the session, never from the request body (see [../identity-sessions-and-secrets.md](../identity-sessions-and-secrets.md)).
 
 - **Scope the query itself.** Constrain the data-access call by the authenticated principal in the same statement: `WHERE id = :id AND owner_id = :sessionUserId` (or tenant/org column), so a mismatched id returns zero rows instead of another user's record. Prefer deriving objects from identity where possible (e.g. account details from `sessionUserId`, no id exposed). Verify the ownership column and session accessor against the installed schema/framework — do not assume an ORM scopes by tenant implicitly.
-- **Fetch-then-verify with an identical 404.** When you must load first and check ownership after, return a byte-identical 404 for both "object does not exist" and "exists but not yours." A `403` (or a different body/latency) on the forbidden branch discloses existence and enables enumeration. Grep for handlers that branch `404` vs `403` on the same id, or that echo the id in the not-found message.
+- **Choose disclosure behavior deliberately.** `403` is the normal response when valid
+  credentials are insufficient. RFC 9110 permits `404` when the service intends to conceal
+  a forbidden resource's existence. In that threat model, keep the observable response
+  consistent for missing and forbidden objects and avoid identifiers in the body; do not
+  require byte-identical `404`s for every application.
 - **Check every function that receives a client id.** Access to one object of a type does not grant access to all objects of that type. Audit every endpoint reading, updating, or deleting by id — not just the obvious GET. Unpredictable ids (random GUIDs) reduce enumeration but are not an authorization control on their own.
 
 ## Function/verb-level authorization (BFLA)
@@ -33,3 +37,4 @@ See ../../ATTRIBUTION.md for licensing.
 - [OWASP API1:2023 Broken Object Level Authorization](https://owasp.org/API-Security/editions/2023/en/0xa1-broken-object-level-authorization/)
 - [OWASP API5:2023 Broken Function Level Authorization](https://owasp.org/API-Security/editions/2023/en/0xa5-broken-function-level-authorization/)
 - [OWASP WSTG: Testing for Bypassing Authorization Schema](https://owasp.org/www-project-web-security-testing-guide/latest/4-Web_Application_Security_Testing/05-Authorization_Testing/02-Testing_for_Bypassing_Authorization_Schema)
+- [RFC 9110 §15.5.4 — 403 Forbidden](https://www.rfc-editor.org/rfc/rfc9110.html#section-15.5.4)

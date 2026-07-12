@@ -29,8 +29,9 @@ intent.
 
 - **Anti-pattern:** `Access-Control-Allow-Origin: *` together with
   `Access-Control-Allow-Credentials: true` (e.g. `cors({ origin: '*', credentials: true })`).
-  Browsers block the response and cookies are not honored — MDN: the server "must not"
-  return `*` for a credentialed request.
+  Browsers prevent the calling script from reading such a response. Do not treat that
+  failure as CSRF protection: a credentialed request may still reach the server and cause
+  side effects, subject to cookie `SameSite` and other browser rules.
   **Fix:** a credentialed API must return a **single exact origin** echoed from an allowlist,
   plus `Vary: Origin`. If credentials are not needed, drop `credentials: true` rather than
   narrowing the origin. `*` is acceptable only for genuinely public, unauthenticated,
@@ -54,12 +55,15 @@ intent.
   **Fix:** emit `Vary: Origin` whenever the response varies by `Origin`. The `cors` middleware
   adds it for dynamic origins; verify it appears on your actual responses (including error
   paths and CDN-cached routes) against the installed version.
-- **Anti-pattern:** treating `null` as trusted (allowlisting the literal `"null"` origin).
-  Sandboxed iframes, `file://`, and redirects send `Origin: null`, so any attacker can forge
-  it. **Fix:** never allowlist `null`; test it explicitly.
+- Treat the serialized `null` origin as untrusted by default. Sandboxed documents and
+  privacy-sensitive contexts can legitimately produce it, and an attacker can create a
+  sandboxed document with that origin. Allow it only for a documented use case with a
+  separate trust mechanism; it does not identify one caller.
 - Keep `methods` and `allowedHeaders` limited to what the API needs, and only set
-  `Access-Control-Allow-Credentials` when cookies/auth are actually required. Broad reflected
-  `Access-Control-Allow-Headers` weakens the preflight boundary. See ../browser-and-http.md.
+  `Access-Control-Allow-Credentials` when cookies/auth are actually required. An expansive
+  `Access-Control-Allow-Headers` is not an authorization bypass by itself, but it enlarges
+  what an already-allowed origin can send; keep it aligned with the API contract. See
+  ../browser-and-http.md.
 
 Middleware defaults and reflection behavior are version-sensitive; confirm the resolved
 response headers against the installed `cors` (or framework) version rather than trusting the

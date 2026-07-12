@@ -95,8 +95,9 @@ Verify the final sink, including framework escape hatches:
 - HTML attributes, URLs, CSS, and JavaScript strings need their own context handling;
 - avoid composing script/style blocks from data;
 - raw HTML APIs (`dangerouslySetInnerHTML`, `v-html`, EJS `<%-`, Handlebars triple
-  braces, Pug raw output, `innerHTML`) require trusted static content or an allowlist
-  sanitizer suitable for the runtime;
+  braces, Pug raw output, direct DOM `innerHTML`) require trusted static content or an
+  allowlist sanitizer suitable for the runtime; account for framework sanitization such
+  as Angular's normal `[innerHTML]` binding before reporting a gap;
 - sanitize on the server when multiple clients consume rich content; client-side
   sanitization may remain an additional boundary before DOM insertion;
 - do not mark a raw sink Met because CSP exists—fix the sink and keep CSP as defense-in-depth;
@@ -109,7 +110,8 @@ schemes where navigation/resource execution is possible.
 ## Database, command, and template boundaries
 
 - Use bound/parameterized values for SQL and allowlist identifiers (table/column/sort
-  direction) that cannot be bound. Raw ORM/query-builder fragments still parameterize:
+  direction) that cannot be bound. Keep values in each ORM/query builder's documented
+  binding or escaping channel:
   bind through `knex.raw('?? = ?', [col, id])` (`?` value, `??` identifier), Prisma's
   tagged-template `$queryRaw` (never `$queryRawUnsafe`/`$executeRawUnsafe`), Sequelize
   `replacements`/`bind` (never interpolation into `literal`), or TypeORM query-builder
@@ -123,9 +125,9 @@ schemes where navigation/resource execution is possible.
   scans, unambiguous key encoding, destructive range operations, and dynamic filesystem
   locations.
 - Use `execFile`/`spawn` with an argument array and `shell:false`; keep command names
-  server-selected. When user data becomes an argument, allowlist it and guard against
-  argument injection (a value starting with `-` parsed as a flag) with a `--` separator
-  or by rejecting flag-like values.
+  server-selected. Constrain user-derived arguments to the command's intended grammar.
+  Guard against option injection with `--` only when that utility documents support for
+  it; otherwise reject flag-like values or use a safer API.
 - Keep template source server-controlled. Escaped interpolation is preferred; compiling
   attacker-authored templates is an execution boundary.
 
@@ -138,8 +140,11 @@ installed library semantics.
   prefixes or suffixes.
 - For redirects, prefer server-side route identifiers or a same-origin relative-path
   policy; reject protocol-relative and credential-bearing URLs.
-- For SSRF-prone features, allowlist required schemes/hosts, resolve and validate target
-  IP ranges, and re-check redirects. Account for DNS rebinding and IPv4/IPv6 forms.
+- For SSRF-prone features, allowlist required schemes/hosts, resolve and validate every
+  target IP, and re-check redirects. Prevent a second, unchecked DNS resolution between
+  validation and connection (for example by pinning the validated address where the
+  client safely supports it) and use egress controls when practical. Account for DNS
+  rebinding and IPv4/IPv6 forms.
 - Derive public absolute URLs from trusted deployment config, not Host or forwarded
   headers, unless a correctly configured trusted proxy overwrites them.
 - Keep webhook callback registration separate from invocation authorization and protect
@@ -179,8 +184,11 @@ short, purpose-appropriate expiry and should not be logged with their full signa
 ## Parsers and deserialization
 
 - Pin/inspect parser versions and disable executable/custom types for untrusted data.
-- In js-yaml 4.x, ordinary `load()` uses the safe schema; do not recommend removed
-  `safeLoad()`. Investigate dangerous custom schemas/types and affected older versions.
+- In js-yaml 4.x, `load()` excludes executable JavaScript tags by default; do not
+  recommend `safeLoad()`, and verify the resolved release and advisories. In js-yaml
+  5.x, `load()` defaults to `CORE_SCHEMA`. Check version-specific limits: 5.0/5.1 expose
+  `maxDepth` and `maxMergeSeqLength`; 5.2+ exposes `maxDepth`, `maxTotalMergeKeys`, and
+  `maxAliases`. In every version, investigate custom schemas/tags and known issues.
 - Disable XML external entities/DTD processing unless explicitly required and safely
   constrained.
 - Do not deserialize attacker data with eval-capable libraries or restore prototypes/
@@ -188,9 +196,10 @@ short, purpose-appropriate expiry and should not be logged with their full signa
 - Apply depth/size/entity limits as resilience controls; prioritize them according to
   actual exposure and the review's DoS scope.
 - Treat regular expressions over untrusted input as a resource-consumption surface: avoid
-  nested or overlapping quantifiers, cap input length before matching, prefer a
-  linear-time engine (for example RE2) for attacker-influenced patterns, and never build a
-  `RegExp` from unescaped user input.
+  nested or overlapping quantifiers, cap input length before matching, and prefer a
+  linear-time engine (for example RE2) for attacker-influenced patterns. Escape input
+  that is meant to be literal. If accepting regex syntax is an intentional feature,
+  constrain its syntax and execution rather than pretending escaping preserves that API.
 
 ## Primary sources
 
@@ -201,3 +210,10 @@ short, purpose-appropriate expiry and should not be logged with their full signa
 - [OWASP SSRF Prevention Cheat Sheet](https://cheatsheetseries.owasp.org/cheatsheets/Server_Side_Request_Forgery_Prevention_Cheat_Sheet.html)
 - [OWASP Mass Assignment Cheat Sheet](https://cheatsheetseries.owasp.org/cheatsheets/Mass_Assignment_Cheat_Sheet.html)
 - [OWASP Deserialization Cheat Sheet](https://cheatsheetseries.owasp.org/cheatsheets/Deserialization_Cheat_Sheet.html)
+- [Node.js child-process documentation](https://nodejs.org/api/child_process.html)
+- [Knex raw parameter binding](https://knexjs.org/guide/raw.html#raw-parameter-binding)
+- [Prisma raw database access](https://www.prisma.io/docs/orm/prisma-client/using-raw-sql/raw-queries)
+- [Sequelize raw queries](https://sequelize.org/docs/v6/core-concepts/raw-queries/)
+- [TypeORM query builder](https://typeorm.io/docs/query-builder/select-query-builder)
+- [`js-yaml` documentation](https://github.com/nodeca/js-yaml)
+- [`js-yaml` 4.0 migration changes](https://github.com/nodeca/js-yaml/blob/4.1.0/CHANGELOG.md#400---2021-01-03)

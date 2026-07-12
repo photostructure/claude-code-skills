@@ -9,17 +9,16 @@ Recognize raw-HTML sinks in code, then neutralize them with a maintained sanitiz
 - Use a maintained, actively patched sanitizer for user-authored HTML/SVG. DOMPurify is the
   common choice; do not hand-roll regex/denylist "sanitizers" (`replace(/<script>/…)`),
   which are bypassable and are not a primary control.
-- A client-side sanitizer must run against the **same DOM/window that will receive the
-  output**. `DOMPurify.sanitize()` in the browser uses the page `window`; in Node/SSR you
-  must bind a DOM: `const DOMPurify = createDOMPurify(window)` with a current jsdom `window`.
-  Anti-pattern: importing DOMPurify server-side and sanitizing against a stale/mismatched
-  or outdated jsdom, then shipping the string to a different renderer. Verify the jsdom
-  version is current — older jsdom has known bypasses.
+- In Node/SSR, DOMPurify requires a DOM implementation such as a current supported jsdom;
+  follow DOMPurify's server-side setup and version guidance. The sanitizer need not use the
+  browser page's identical `window`, but security depends on the sanitizer/DOM combination
+  parsing the content as expected and on not mutating sanitized markup afterward.
 - Sanitize on the **server** when multiple clients consume the same rich content; keep
   client-side sanitization as an additional boundary immediately before DOM insertion.
-- Where Trusted Types are enforced, have the sanitizer emit a `TrustedHTML` via the
-  `RETURN_TRUSTED_TYPE: true` config rather than a bare string. Confirm option names against
-  the installed DOMPurify version — its config keys have changed across releases.
+- Where Trusted Types are enforced, integrate DOMPurify according to the policy design.
+  Direct sanitization can request `TrustedHTML` with `RETURN_TRUSTED_TYPE: true`; inside a
+  `trustedTypes.createPolicy(...).createHTML` callback DOMPurify documents using `false`
+  because the callback must return a string.
 
 ## Worked fix (React)
 
@@ -42,18 +41,19 @@ content) instead of raw values.
 - Angular: `[innerHTML]="…"` is **auto-sanitized** by Angular's built-in sanitizer, so the
   real finding is a `DomSanitizer.bypassSecurityTrust*` call on untrusted data —
   `bypassSecurityTrustHtml`, `bypassSecurityTrustScript`, `bypassSecurityTrustStyle`,
-  `bypassSecurityTrustUrl`, `bypassSecurityTrustResourceUrl`. Remove the bypass or sanitize
-  before it. Verify Angular's default sanitization still applies for your version/binding.
+  `bypassSecurityTrustUrl`, `bypassSecurityTrustResourceUrl`. Remove the bypass; if a trust
+  wrapper is genuinely required, validate/sanitize for that exact HTML/URL/resource context
+  before marking the value trusted. Verify behavior for the installed Angular binding.
 - EJS: `<%- … %>` (raw) vs. `<%= … %>` (escaped) — sanitize raw output.
 - Handlebars: `{{{ … }}}` (triple-brace, unescaped) vs. `{{ … }}` — sanitize triple-brace.
 - Pug: `!= …` (unescaped) vs. `= …` (escaped) — sanitize unescaped interpolation.
 
 ## Contexts auto-escaping does not cover
 
-- Framework auto-escaping and template escapers cover **HTML text context only**. URL,
-  HTML-attribute, JavaScript, CSS, and DOM contexts each need their own handling:
-  scheme-allowlist and encode URLs (reject `javascript:`/`data:` where navigable), encode
-  attribute values, never build script/style blocks from data, and avoid DOM sinks
+- Do not summarize every framework as “HTML text only.” React, Vue, Angular, and template
+  engines have different property/attribute escaping and URL sanitization behavior. Verify
+  the installed framework and exact binding. Still apply context-specific controls:
+  allowlist URL schemes, avoid building script/style source from data, and avoid DOM sinks
   (`innerHTML`, `insertAdjacentHTML`, `document.write`, `eval`) fed untrusted input.
 - CSP is **defense-in-depth, not a fix for the sink**. Do not mark a raw-HTML sink resolved
   because a Content-Security-Policy exists — fix the sink and keep CSP as a second layer.

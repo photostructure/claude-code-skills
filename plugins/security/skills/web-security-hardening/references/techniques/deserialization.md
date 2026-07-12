@@ -7,16 +7,15 @@ reviver is arbitrary code execution, not parsing. Keep untrusted input as inert 
 
 ## Dangerous libraries that revive functions
 
-- Anti-pattern: an import of `node-serialize`, `serialize-to-js`, `funcster`, or `cryo`, then
-  `unserialize(...)` / `deserialize(...)` called on a request-derived value (body, cookie, query,
-  header, queue message). `node-serialize.unserialize` is CVE-2017-5941: any property whose string
-  value begins with the marker `_$$ND_FUNC$$_` is passed to `eval`, and an appended IIFE (`}()`)
-  runs on deserialize. `funcster` revives functions similarly (marker `__js_function`). `cryo`
-  differs: it restores object prototypes, and RCE fires when a gadget method (`toString`/`valueOf`)
-  is later called on the restored object, not on deserialize itself.
-- Greppable payload marker: `_$$ND_FUNC$$_` in stored/logged/transmitted values — treat its presence
-  as an active exploit attempt, not a benign string.
-- Fix: remove these libraries from any untrusted path. Transfer plain data as JSON and reconstruct
+- Confirmed anti-pattern: `node-serialize` `unserialize(...)` on attacker-controlled input.
+  GHSA-q4v7-4rhw-9hqm / CVE-2017-5941 affects all published versions through 0.0.4 and has
+  no patched release; an immediately invoked serialized function can execute code. Review
+  any other function/prototype-restoring package from its pinned source and advisories
+  rather than inferring identical marker or gadget behavior from the word “deserialize.”
+- Greppable indicator: `_$$ND_FUNC$$_` in values that reach `node-serialize` deserves
+  investigation and rejection. The marker in unrelated text is not by itself proof of an
+  exploit attempt; confirm the data flow.
+- Fix: remove eval/function-restoring libraries from any untrusted path. Transfer plain data as JSON and reconstruct
   behavior server-side from an allowlist (below). If a legitimate internal use exists, gate it behind
   an authenticity check (signed/MAC'd payload from a trusted producer) and document the trust boundary.
 - Verify against the installed version: confirm which function names the package exposes and whether a
@@ -54,4 +53,4 @@ reviver is arbitrary code execution, not parsing. Keep untrusted input as inert 
 
 - [OWASP Deserialization Cheat Sheet](https://cheatsheetseries.owasp.org/cheatsheets/Deserialization_Cheat_Sheet.html)
 - [NVD — CVE-2017-5941 (node-serialize unserialize RCE)](https://nvd.nist.gov/vuln/detail/CVE-2017-5941)
-- [OpsecX — Exploiting Node.js deserialization bug for Remote Code Execution](https://opsecx.com/index.php/2017/02/08/exploiting-node-js-deserialization-bug-for-remote-code-execution/)
+- [GitHub Advisory GHSA-q4v7-4rhw-9hqm](https://github.com/advisories/GHSA-q4v7-4rhw-9hqm)

@@ -8,11 +8,13 @@ Harden state-changing requests against cross-site forgery; recognize dead and na
 
 - Greppable: `require("csurf")`, `import csurf from "csurf"`, `app.use(csurf(...))`, or `"csurf"` in `package.json`. The `expressjs/csurf` repository is archived and no longer maintained (no issues, features, or fixes). Do not resolve a missing-CSRF finding by installing it.
 - Fix: adopt a maintained control. A signed double-submit implementation (e.g. `csrf-csrf`) or a framework built-in is the durable lever, not a specific package name. Verify the replacement's current maintenance status (recent releases, open-issue responsiveness) against the installed version before recommending it—do not assume today's popular package is still healthy.
-- Framework built-ins are preferable where they exist: Fastify via `@fastify/csrf-protection` (NestJS has no built-in—its docs point to `csrf-csrf` for the Express adapter, `@fastify/csrf-protection` for the Fastify adapter). Full-stack frameworks that check the request origin by default: Next.js Server Actions compare `Origin` against `Host`/`X-Forwarded-Host` (POST-only, permissive when `Origin` is absent—verify against the installed version), and SvelteKit's `csrf.checkOrigin` is on by default for browser form posts. Remix ships no dedicated CSRF control—its only default is `SameSite=Lax` cookies (defense-in-depth, see below); add a token library (e.g. `remix-utils`) for a real control. Confirm any built-in is actually enabled, not merely available.
+- Prefer a maintained framework control when one exists. Verify the installed version,
+  adapter, route type, proxy/origin configuration, and actual coverage; framework defaults
+  change and package presence is not evidence that every state-changing route is protected.
 
 ## Token pattern: synchronizer vs. signed double-submit
 
-- Synchronizer token: server generates a per-session (or per-request) secret, stores it server-side, and compares the submitted token to the stored value. Strongest, but requires server session state.
+- Synchronizer token: server generates a per-session (or per-request) secret, stores it server-side, and compares the submitted token to the stored value. Use it for stateful sessions.
 - Signed double-submit: token is an HMAC over a session-bound value using a server-side secret, sent in both a cookie and a request field; server recomputes and compares. Use this when stateless. Naive (unsigned) double-submit—cookie value compared to a mirrored field with no secret—is forgeable via subdomain/cookie-injection and is not an adequate control.
 - Greppable weaknesses: token compared with `==`/`===` on attacker-writable values; token derived from static identity (`user.id`, email) instead of a session-dependent value; a single global token reused across users; no secret in the double-submit (no HMAC/`createHmac`). Fix: bind the token explicitly to a session-specific value (session id, or a random claim inside the JWT), sign with a server-held secret, and compare with a constant-time check (`crypto.timingSafeEqual`).
 
@@ -24,12 +26,25 @@ Harden state-changing requests against cross-site forgery; recognize dead and na
 ## Header-boundary fallback
 
 - Origin/Referer check: for unsafe methods, compare the `Origin` header (fall back to `Referer`) against an allowlist of expected target origins using a real URL parser—normalized scheme/host/port, never a prefix/suffix match. These are forbidden headers browsers will not let script forge.
-- Fetch Metadata: reject unsafe cross-origin requests where `Sec-Fetch-Site` is `cross-site` (and evaluate `same-site` per your subdomain trust). Treat `none`/absent as legacy and fall through to Origin/Referer, which remains mandatory for browsers that omit `Sec-Fetch-*`. Support and header presence are version/client-sensitive—verify behavior for your supported browser matrix rather than assuming universal coverage.
-- `SameSite` cookies (`Lax`/`Strict`) are defense-in-depth only: `Lax` blocks only unsafe cross-site methods, defaults vary across browser versions, and same-site subdomains bypass it. Do not mark CSRF handled because `SameSite` is set. Verify the framework's cookie default against the installed version; set it explicitly rather than relying on it.
+- Fetch Metadata: reject unsafe cross-origin requests where `Sec-Fetch-Site` is
+  `cross-site` (and evaluate `same-site` per your subdomain trust). An absent header needs
+  the rollout policy's fallback (often Origin/Referer); `Sec-Fetch-Site: none` is a distinct
+  browser value for user-initiated contexts, not “missing,” and should follow the policy for
+  the method/resource. Verify behavior for the supported browser matrix.
+- `SameSite` cookies are normally defense-in-depth: `Lax` still permits cookies on some
+  top-level cross-site safe-method navigations, while `Strict` is more restrictive, and
+  same-site sibling subdomains remain in the same “site.” OWASP describes narrow conditions
+  where an explicit `SameSite` policy can suffice; assess those conditions instead of
+  treating either “always enough” or “never enough” as universal.
 
 ## Verifying "Met"
 
-Mark CSRF handled only after tracing a maintained control that binds the token to the session, rejects on token failure for every unsafe route, and has a header-boundary fallback. A set cookie flag or an installed package alone is not proof.
+Mark CSRF handled after tracing at least one appropriate primary defense across every
+state-changing browser-authenticated route: a synchronizer/signed-double-submit token,
+a custom-header plus strict CORS design, or a supported Fetch Metadata/origin policy with
+its documented fallback. Header checks are useful defense-in-depth for token designs, not
+a mandatory second mechanism in every architecture. A cookie flag or installed package
+alone is not proof.
 
 See ../input-output-and-files.md for trust boundaries and ../../ATTRIBUTION.md.
 

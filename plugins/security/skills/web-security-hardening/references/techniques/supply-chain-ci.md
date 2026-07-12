@@ -6,19 +6,15 @@ Harden how third-party code enters the build and how the build's trust and secre
 
 ## Install-time execution
 
-- Lifecycle scripts (`preinstall`/`install`/`postinstall`) run arbitrary code from every
-  transitive dependency at install time. Anti-pattern: a plain `npm install`/`npm ci` in
-  CI or a Dockerfile with no script suppression, so one compromised transitive version
-  gets code execution on the builder.
-- Fix: install with scripts disabled — `npm ci --ignore-scripts`, or set
-  `ignore-scripts=true` in `.npmrc` so the default is safe. Then allowlist the few packages
-  that genuinely need a build step and run only those explicitly (e.g. a rebuild step
-  naming the native modules), rather than re-enabling scripts wholesale.
-- Blunt compromised-new-version attacks with a release-age cooldown — malicious versions
-  rely on fast automated pickup before takedown. Lever: npm `.npmrc` `min-release-age`
-  (npm CLI ~11.10.0+); pnpm `minimumReleaseAge`, Yarn `npmMinimalAgeGate`, Bun
-  `minimumReleaseAge`; or a Renovate/Dependabot cooldown window. Verify the exact key and
-  supporting version against your installed manager — names/availability differ and are recent.
+- Dependency lifecycle scripts can execute code during installation. Treat plain
+  `npm install`/`npm ci` as a review point, not an automatic gap: some projects require
+  vetted native/build scripts. Prefer npm's current dependency-script allowlist policy
+  where supported, or `npm ci --ignore-scripts` followed by explicitly reviewed package
+  rebuilds. Confirm the installed npm version and test that required artifacts still build.
+- A release-age cooldown can reduce immediate uptake of a newly compromised version, at
+  the cost of delaying fixes. Current npm supports `min-release-age` and scoped exclusions;
+  verify the installed CLI and explicitly handle urgent security updates rather than
+  copying a version-dependent setting from another package manager.
 - Anti-pattern: floating ranges (`^`, `~`, `latest`) with no committed lockfile, or `npm
   install` (mutates the lockfile) in CI. Fix: commit the lockfile and use `npm ci`, which
   installs the locked tree exactly and fails on drift.
@@ -26,21 +22,26 @@ Harden how third-party code enters the build and how the build's trust and secre
 ## CI/CD trigger and secret boundaries
 
 - The `pull_request_target` "pwn-request" footgun: this GitHub Actions trigger runs the
-  workflow from the **base** branch but with a **write** `GITHUB_TOKEN` and repo secrets,
-  even for forked-PR runs. Anti-pattern (greppable): `on: pull_request_target` plus an
+  workflow from the base branch in a privileged context that may have write permissions
+  and secrets (subject to explicit permissions, repository settings, and special actors
+  such as Dependabot). Anti-pattern: `on: pull_request_target` plus an
   `actions/checkout` whose `ref:` is the PR head
   (`github.event.pull_request.head.sha`/`.ref`) followed by running that code — build,
   test, lint, `npm install` (lifecycle scripts!), or any `run:` over checked-out files.
-  That executes attacker code inside a secret-bearing context.
+  That executes attacker code inside a secret-bearing context. GitHub documents additional
+  protection in `actions/checkout` v7+; verify the installed action and flag any
+  `allow-unsafe-pr-checkout: true` opt-out, but do not assume it covers other fetch methods.
 - Fix: run untrusted PR code under `on: pull_request` (fork PRs there get a read-only
   token and no secrets). If you must combine untrusted code with privileged actions, split
-  it: an unprivileged job builds/tests the head, and a separate job gated behind a
-  protected `environment:` (with required reviewers) consumes only inert artifacts — never
-  checkout-and-execute head code in the privileged job. Treat labels/comments as
-  bypassable gates, not trust.
+  it: an unprivileged job builds/tests the head, then a separately designed privileged
+  workflow consumes only narrowly defined outputs. Treat artifacts as untrusted data—an
+  archive, report, filename, or parser can itself carry an exploit—and require review or
+  robust parsing before any privileged action. A protected environment limits secret use
+  but does not make attacker-produced artifacts inert.
 - Pin third-party actions by full commit SHA, not a mutable tag. Anti-pattern:
   `uses: some/action@v3` or `@main`; a moved tag silently ships new code into your
-  pipeline. Fix: `uses: some/action@<40-char-sha>`.
+  pipeline. Fix: `uses: some/action@<full-length-commit-sha>` and verify the commit belongs
+  to the intended repository.
 - Scope `permissions:` to least privilege (`contents: read` at the workflow top level,
   widen per-job only where needed). Verify the current default-token behavior against your
   org/repo settings — the platform default has changed over time.
@@ -60,6 +61,8 @@ Harden how third-party code enters the build and how the build's trust and secre
 
 - [npm CLI: npm ci](https://docs.npmjs.com/cli/commands/npm-ci)
 - [npm CLI: npmrc / config (ignore-scripts)](https://docs.npmjs.com/cli/configuring-npm/npmrc)
+- [npm CLI: dependency script policy](https://docs.npmjs.com/cli/install/)
 - [npm: Generating provenance statements](https://docs.npmjs.com/generating-provenance-statements)
 - [GitHub Security Lab: Keeping your GitHub Actions and workflows secure Part 1 — pwn requests](https://securitylab.github.com/resources/github-actions-preventing-pwn-requests/)
 - [GitHub Docs: Security hardening for GitHub Actions](https://docs.github.com/en/actions/security-guides/security-hardening-for-github-actions)
+- [GitHub Docs: securely using `pull_request_target`](https://docs.github.com/en/actions/reference/security/securely-using-pull_request_target)
