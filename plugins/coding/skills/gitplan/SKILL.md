@@ -1,11 +1,11 @@
 ---
 name: gitplan
-description: Plan and execute coherent Conventional Commit groupings for large, tangled working tree changes across many files.
+description: Plan and execute coherent Conventional Commit groupings for tangled working tree changes — multiple intertwined logical edits that need to land as separate, reviewable commits.
 disable-model-invocation: false
 allowed-tools: Bash, Read, Glob, Grep, Edit, Write, WebSearch, Skill
 ---
 
-**Don't invoke this skill if we're just reviewing a couple files. This skill is ONLY applicable when untangling 15+ files with multiple inter-twingled edits.**
+**Applicability is about how tangled the changes are, not how many files they touch.** Invoke this skill when the working tree mixes multiple intertwined logical changes that need untangling into separate commits — even if that's only a handful of files. Skip it when the changes are trivial or superficial, no matter how many files they touch: formatter runs, lint autofixes, typo/grammar fixes, or edits that obviously belong in a single commit.
 
 # Review and plan git commits
 
