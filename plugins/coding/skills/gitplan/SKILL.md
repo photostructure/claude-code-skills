@@ -1,8 +1,6 @@
 ---
 name: gitplan
 description: Plan and execute coherent Conventional Commit groupings for tangled working tree changes — multiple intertwined logical edits that need to land as separate, reviewable commits.
-disable-model-invocation: false
-allowed-tools: Bash, Read, Glob, Grep, Edit, Write, WebSearch, Skill
 ---
 
 **Applicability is about how tangled the changes are, not how many files they touch.** Invoke this skill when the working tree mixes multiple intertwined logical changes that need untangling into separate commits — even if that's only a handful of files. Skip it when the changes are trivial or superficial, no matter how many files they touch: formatter runs, lint autofixes, typo/grammar fixes, or edits that obviously belong in a single commit.
@@ -19,7 +17,9 @@ If the repository has a layered structure (e.g. shared utilities → core → fe
 
 ### Phase 1: Identify Themes
 
-1. Scan all current changes with `git status` and `git diff --stat` — use subagents to preserve context and give summaries.
+1. Scan all current changes with `git status` and `git diff --stat`. When
+   subagents are available and the diff is large, use them to preserve context
+   and summarize distinct areas.
 2. For complex diffs, use `git diff -U150` but limit JSON/lockfiles to the first ~50 lines.
 3. Identify logical themes/groupings. Each theme must have a **single coherent purpose** — a unifying "why" that explains every file in the group. If you can't state the purpose in one sentence without using "and", split the theme. **Never create catch-all buckets** like "housekeeping", "misc", "cleanup", or "various fixes". Every file belongs in a theme because of what it _does_, not because it's small or doesn't fit elsewhere. Orphan files that truly don't relate to any theme get their own single-file commit.
 4. **Bundle related docs/plans with their code changes.** If a planning doc, design note, or task file corresponds to a theme, commit it alongside the code it describes — never lump it into a separate "docs" commit. Docs that don't correspond to any code change can go in a docs-only commit.
@@ -45,7 +45,8 @@ If the repository has a layered structure (e.g. shared utilities → core → fe
 
 ## Review Guidelines
 
-Review the staged code for potential issues and improvements. Follow any project conventions documented in the repository root (e.g. `CLAUDE.md`, `AGENTS.md`, contributing guides).
+Review the staged code for potential issues and improvements. Follow project
+conventions in `AGENTS.md`, optional `CLAUDE.md`, and contributing guides.
 
 ## Review Focus
 

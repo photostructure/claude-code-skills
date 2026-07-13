@@ -1,0 +1,4 @@
+interface:
+  display_name: "Git Commit Planner"
+  short_description: "Untangle changes into coherent commits"
+  default_prompt: "Use $coding:gitplan to split tangled working-tree changes into coherent commits."

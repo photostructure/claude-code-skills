@@ -1,7 +1,6 @@
 ---
 name: stage
 description: Use when committing work from the current session to stage ONLY hunks the session touched, not the entire file. Prevents accidentally staging unrelated uncommitted changes from other work.
-allowed-tools: Bash, Read, Glob, Grep, Write
 ---
 
 # Stage Session Changes
@@ -14,7 +13,9 @@ If, after checking the current git status, you find that all of your changes hav
 
 **NEVER `git add` an entire modified file unless every hunk in its diff belongs to this work.**
 
-`git add -p` and `git add -i` require interactive input and don't work here. This skill uses non-interactive patch filtering instead.
+Interactive staging may be unavailable. This skill includes
+[`scripts/stage_hunks.py`](./scripts/stage_hunks.py) for deterministic,
+non-interactive partial staging on Windows and POSIX hosts.
 
 ## One concern per commit
 
@@ -32,104 +33,76 @@ When splitting, run the full procedure below **once per commit**: inventory just
 
 When in doubt about whether changes belong together, **ask the user** which grouping they prefer before staging.
 
-## Live Context
+## Gather live context
 
-- Working tree: !`git status --short`
-- Already staged: !`git diff --cached --stat`
-- Recent commits: !`git log --oneline -5`
+Run these commands at invocation time; never rely on embedded or previously
+captured output:
+
+```text
+git status --short
+git diff --cached --stat
+git log --oneline -5
+```
 
 ## Procedure
 
 ### 1. Inventory Changes to Stage
 
-Review your conversation history. Collect:
+Review the conversation and operation history. Collect:
 
-- **Edit tool calls**: file path + `old_string`/`new_string` for each
-- **Write tool calls**: new files created from scratch
-- **Deleted files**: files removed this session
+- each changed file and the exact before/after content attributable to this
+  body of work;
+- new files created for this work;
+- files deleted for this work.
 
-Files you only **Read** are NOT session changes. Do not stage them.
+Files you only inspected are not session changes. Do not stage them.
 
 If the session is working from a plan or task document, its scope may extend beyond this conversation — prior work may have left related uncommitted changes. In that case, read the plan, and for each uncommitted file in `git status` decide whether it belongs to the same body of work; **ask the user** when unsure. Stage the plan/task file itself if it was updated this session.
 
 ### 2. Classify Each File
 
-For each file you edited, run `git diff -- <file>` and compare every hunk against your Edit calls.
+For each file you changed, run `git diff -- <file>` and compare every hunk with
+the recorded changes from this body of work.
 
 | Situation                                 | Action                 |
 | ----------------------------------------- | ---------------------- |
-| **New file** (Write tool, `??` in status) | `git add <file>`       |
+| **New file** (`??` in status)             | `git add <file>` only if the whole file belongs to this work |
 | **Deleted file**                          | `git rm <file>`        |
 | **ALL hunks are yours**                   | `git add <file>`       |
 | **SOME hunks are yours** (mixed)          | Partial-stage (step 3) |
 | **NO hunks are yours**                    | Do not stage           |
 
-### 3. Partial-Stage Mixed Files
+### 3. Partial-stage mixed files
 
-Pick whichever strategy involves fewer hunks to handle:
+Resolve the bundled helper relative to this skill directory and use the host's
+Python 3 launcher. It reads one tracked file's unstaged diff, numbers its hunks,
+and passes only explicitly selected hunks to `git apply --cached`; it does not
+create a fixed-path temporary file or modify the working tree.
 
-#### Strategy A: Stage only your hunks (when MOST hunks are NOT yours)
+First list the hunks:
 
-```bash
-git diff -- path/to/file > /tmp/stage-FILENAME.patch
+```text
+python3 scripts/stage_hunks.py path/to/file --list
 ```
 
-Read the patch. Write a filtered copy keeping ONLY hunks matching your session edits:
+Map each numbered hunk back to the recorded changes for this work. Then stage
+only the matching hunk numbers:
 
-- **Keep**: `diff --git` header, `---`/`+++` lines, `@@` + content for each session hunk
-- **Remove**: Entire hunks (from one `@@` to the next) that don't match any Edit call
-
-```bash
-git apply --cached --recount /tmp/stage-FILENAME.patch
+```text
+python3 scripts/stage_hunks.py path/to/file --include 1,3
 ```
 
-#### Strategy B: Stage whole file, then unstage non-session hunks (when MOST hunks ARE yours)
+On Windows, `py -3` is a common equivalent; otherwise use the host's documented
+Python 3 launcher. Review the helper's displayed hunk summaries before
+applying.
 
-```bash
-git add path/to/file
-git diff --cached -- path/to/file > /tmp/unstage-FILENAME.patch
-```
+The helper refuses broadened path selections and file-level mode, rename,
+copy, creation, or deletion metadata. Attribute and stage those changes
+separately before selecting content hunks.
 
-Read the patch. Write a filtered copy keeping ONLY the hunks that are NOT yours:
-
-```bash
-git apply --cached -R --recount /tmp/unstage-FILENAME.patch
-```
-
-#### Strategy C: Replay edits onto HEAD (last resort for heavily entangled diffs)
-
-When the working tree has so many pre-existing changes that your session hunks can't be cleanly isolated — e.g., surrounding context lines have shifted, or `diff` merges adjacent hunks from different sessions into a single hunk — Strategies A and B both fail because there are no clean hunk boundaries to split on.
-
-Instead, reconstruct a clean patch by replaying your edits onto the committed version of the file:
-
-```bash
-# 1. Extract the committed version
-git show HEAD:path/to/file > /tmp/FILENAME.orig
-cp /tmp/FILENAME.orig /tmp/FILENAME.mine
-
-# 2. Apply ONLY your session's edits to the copy
-#    (use the Edit tool on /tmp/FILENAME.mine, reproducing each edit from the conversation)
-
-# 3. Diff using git diff --no-index (produces git-compatible patch format)
-#    IMPORTANT: Do NOT use `diff -u` — its output format can silently mismatch
-#    with `git apply`, especially when the index is dirty.
-git diff --no-index /tmp/FILENAME.orig /tmp/FILENAME.mine \
-  | sed 's|a/tmp/FILENAME.orig|a/path/to/file|;s|b/tmp/FILENAME.mine|b/path/to/file|' \
-  > /tmp/stage-FILENAME.patch
-
-# 4. Review the patch — every line must trace to a session edit
-
-# 5. Stage the clean patch
-git apply --cached --recount /tmp/stage-FILENAME.patch
-```
-
-This guarantees the staged diff contains exactly your edits and nothing else, regardless of how entangled the working tree is. The downside is you must re-apply every Edit call to the `/tmp` copy, which is tedious for files with many edits. Only use this when A and B aren't viable.
-
-#### Notes
-
-`--recount` recalculates hunk line counts so you don't need to manually fix `@@ -X,Y +A,B @@` after removing hunks from a patch file.
-
-If apply fails, check that each kept hunk has its `@@` line and all context/change lines intact.
+If one Git hunk mixes related and unrelated lines, **do not stage that hunk or
+the whole file**. Stop and ask the user how to split or attribute the entangled
+change. Preserving unrelated work is more important than forcing a commit.
 
 ### 4. Verify
 
@@ -138,11 +111,10 @@ git diff --cached --stat
 git diff --cached
 ```
 
-Every staged line must trace to this session's edits. If an unrelated hunk leaked in:
-
-```bash
-git reset HEAD -- path/to/file
-```
+Every newly staged line must trace to this body of work. Also compare against
+the staged diff that existed before this workflow so pre-existing staged work is
+not mistaken for yours. If anything is uncertain, stop before committing and
+ask the user; never clear or replace someone else's staged changes wholesale.
 
 ### 5. Compose Commit Message
 
@@ -183,27 +155,22 @@ Repeat a trailer for multiple values (one per line) — never `Reported-by: a, b
 
 - **Total message must be under 10 lines** (subject + blank + body + footers).
 - If it takes more than 10 lines to explain, the commit does too much. Go back to step 2 and split into multiple commits by topic.
-- Match the style of recent commits shown in Live Context above.
+- Match the style of the recent commits gathered above.
 
 **NEVER include**: Co-Authored-By trailers, AI attribution, line-by-line enumeration.
 
 ### 6. Present and Await Approval
 
-Show the staged diff summary and proposed commit message. **Do NOT commit until the user explicitly approves.**
-
-```bash
-git commit -m "$(cat <<'EOF'
-type(scope): description
-
-Optional body
-EOF
-)"
-```
+Show the staged diff summary and proposed commit message. **Do not commit until
+the user explicitly approves that exact staged scope and message.** After
+approval, pass the message to `git commit` using the host's normal non-
+interactive argument or message-file mechanism; do not use shell substitution.
 
 ## STOP — Red Flags
 
 - About to `git add .` or `git add -A` or `git add --all` — **STOP**
 - About to `git add <file>` on a file with mixed changes — **STOP**, partial-stage
-- Staged diff has lines you can't trace to a session edit — `git reset HEAD -- <file>`
+- Staged diff has lines you cannot trace to this work — **STOP** and preserve
+  the user's existing index state
 - Commit message exceeds 10 lines — **STOP**, split into multiple commits
 - About to commit without user approval — **STOP**

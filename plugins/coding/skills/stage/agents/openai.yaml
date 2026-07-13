@@ -1,0 +1,4 @@
+interface:
+  display_name: "Stage Session Changes"
+  short_description: "Stage only changes from the current work"
+  default_prompt: "Use $coding:stage to stage only the hunks from this body of work."
