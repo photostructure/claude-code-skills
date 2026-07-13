@@ -1,0 +1,37 @@
+{
+  "name": "coding",
+  "version": "1.0.0",
+  "description": "Disciplined planning, proof-based code review, focused Git staging, and Technical Project Plan workflows for coding agents.",
+  "author": {
+    "name": "Matthew McEachen",
+    "url": "https://photostructure.com/coding/"
+  },
+  "homepage": "https://photostructure.com/coding/",
+  "repository": "https://github.com/photostructure/coding-skills",
+  "license": "MIT",
+  "keywords": [
+    "skills",
+    "code-review",
+    "planning",
+    "git",
+    "conventional-commits",
+    "technical-project-plans"
+  ],
+  "skills": "./skills/",
+  "interface": {
+    "displayName": "Coding Workflows",
+    "shortDescription": "Plan, review, stage, and hand off coding work",
+    "longDescription": "Nine reusable workflows for iterative planning, evidence-backed review, precise Git staging, and multi-session Technical Project Plans.",
+    "developerName": "PhotoStructure",
+    "category": "Developer Tools",
+    "capabilities": [
+      "Read",
+      "Write"
+    ],
+    "defaultPrompt": [
+      "Review this change and report only verified issues.",
+      "Turn these working-tree changes into coherent commits.",
+      "Continue this Technical Project Plan from its current phase."
+    ]
+  }
+}

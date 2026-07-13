@@ -1,58 +1,102 @@
-# Claude Code coding skills
+# PhotoStructure coding skills
 
-An opinionated [Claude Code](https://code.claude.com) plugin marketplace. The
-**`coding`** plugin bundles nine workflow skills for disciplined planning, proof-based
-review, clean commits, and multi-session Technical Project Plans (TPPs). The
-**`security`** plugin adds complementary JavaScript/TypeScript vulnerability-review and
-security-hardening skills. The **`cpp`** plugin adds complementary modern-C++ native-addon
-memory/resource review and cross-platform project-setup/hardening skills.
-Documented in depth at [photostructure.com/coding](https://photostructure.com/coding/).
+A dual [Codex](https://learn.chatgpt.com/docs/plugins) and
+[Claude Code](https://code.claude.com) plugin marketplace for disciplined
+planning, proof-based review, focused Git history, web security, and modern C++
+native development. The same 13 skills are packaged natively for both products.
 
-| Skill            | What it does                                                                                   | Read more |
-| ---------------- | ---------------------------------------------------------------------------------------------- | --------- |
-| `replan`         | Iterative critique-and-refine planning. Forces multiple passes before committing to a design.  | [Claude picks the first idea that works. Make it pick the best one.](https://photostructure.com/coding/claude-code-replan/) |
-| `review`         | Code review that requires *proof* before reporting — a short list of real bugs, not noise.     | [Most AI code reviews are noise. Here's how to fix that.](https://photostructure.com/coding/claude-code-review/) |
-| `review-staged`  | The same proof-based review, scoped to `git diff --cached`, then drives a clean commit.        | [Most AI code reviews are noise. Here's how to fix that.](https://photostructure.com/coding/claude-code-review/) |
-| `double-review`  | Validation gate: two independent reviews (codex + a Claude subagent) of the same diff, every finding vetted against ground truth before accept/veto. | [Most AI code reviews are noise. Here's how to fix that.](https://photostructure.com/coding/claude-code-review/) |
-| `gitplan`        | Untangle a large working tree into coherent, single-purpose Conventional Commits.              | — |
-| `stage`          | Stage only the hunks the current session touched — never the whole file — and commit cleanly.  | — |
-| `tpp`            | Work on a Technical Project Plan: read the plan, do the current phase, record discoveries. Bundles a reference `TPP-GUIDE.md`. | [Claude Code has amnesia. So do PRs, changelogs, and your future self.](https://photostructure.com/coding/claude-code-tpp/) |
-| `handoff`        | Update the active TPP before context runs out, so the next session continues instead of restarting. | [Claude Code has amnesia. So do PRs, changelogs, and your future self.](https://photostructure.com/coding/claude-code-tpp/) |
-| `tpp-orchestrate` | Execute a queue of TPPs serially: TDD subagents, dual independent reviews, every finding vetted against ground truth, one commit per plan. | [Claude Code has amnesia. So do PRs, changelogs, and your future self.](https://photostructure.com/coding/claude-code-tpp/) |
+The `coding` plugin contains nine general engineering workflows. The `security`
+plugin pairs proof-gated JavaScript/TypeScript vulnerability review with an
+applicability-aware OWASP ASVS hardening assessment. The `cpp` plugin provides
+the corresponding defect-review and build-hardening pair for modern C++ and
+Node.js native addons.
 
-### Security plugin
+## Skills
 
-| Skill | What it does | Read more |
-| ----- | ------------ | --------- |
-| `web-security-review` | Audits JavaScript/TypeScript web apps (Node/Express/Nest/Next, React/Vue/Angular) for injection (incl. per-ORM raw + SQLite), XSS, authorization (IDOR/BOLA/mass-assignment), auth/session/JWT, SSRF, CSRF, secrets, and crypto — plus conditional passes for **self-hosted deployment hardening** (Docker/network exposure/reverse-proxy trust) and **OIDC/SSO account-takeover**. Traces data flow; reports only proven findings (a proof gate, not confidence scores). | A best-of-three composite of the [Sentry](https://github.com/getsentry/skills), [Anthropic](https://github.com/anthropics/claude-code-security-review), and [GitHub awesome-copilot](https://github.com/github/awesome-copilot) security-review skills, extended with OWASP/CIS/RFC-sourced self-hosting depth. See [ATTRIBUTION.md](plugins/security/skills/web-security-review/ATTRIBUTION.md). |
-| `web-security-hardening` | Assesses applicable preventive controls and secure defaults against **OWASP ASVS 5.0.0**: headers/Helmet/CSP, forms/CSRF, runtime validation and contextual encoding, uploads, passwords/MFA/sessions/secrets, framework defaults, databases/Redis/LevelDB, containers, CI, logging, and backups. Reports evidence-backed **Met / Gap / Not applicable / Needs verification** states and remediation priorities—not vulnerability severity. | Synthesizes OWASP, NIST, MDN, and official framework/library guidance while filtering generic listicles and inapplicable controls. See [ATTRIBUTION.md](plugins/security/skills/web-security-hardening/ATTRIBUTION.md). |
+| Plugin | Skill | Purpose |
+| --- | --- | --- |
+| coding | `replan` | Iteratively critique alternatives before settling a complex design. |
+| coding | `review` | Review code and report only issues proven through the full code path. |
+| coding | `review-staged` | Apply the same proof gate to the staged diff before proposing a commit. |
+| coding | `double-review` | Run two mutually blind reviews, then accept or veto every finding with evidence. |
+| coding | `gitplan` | Untangle a mixed working tree into coherent Conventional Commits. |
+| coding | `stage` | Stage only the hunks attributable to the current body of work. |
+| coding | `tpp` | Continue the current phase of a living Technical Project Plan (TPP). |
+| coding | `handoff` | Update the active TPP so a later session can continue without rediscovery. |
+| coding | `tpp-orchestrate` | Drive a queue of TPPs through TDD, independent review gates, and coherent commits. |
+| security | `web-security-review` | Trace JavaScript/TypeScript data flow and report only proven vulnerabilities. |
+| security | `web-security-hardening` | Assess applicable preventive controls against an ASVS-guided baseline. |
+| cpp | `resource-review` | Prove native memory/resource defects through traces, reproducers, or complete lifetime analysis. |
+| cpp | `project-setup` | Assess cross-platform build hardening, analysis tooling, CI, and modern C++ conventions. |
 
-### C++ plugin
+The workflows are documented in depth at
+[photostructure.com/coding](https://photostructure.com/coding/). License and
+source attribution for the security and C++ skills remain alongside each skill.
 
-For cross-platform modern-C++ (C++17) native projects — especially Node.js addons built
-with node-gyp and node-addon-api. The pair mirrors the security plugin: one proves defects,
-the other assesses preventive controls.
+## Install in Codex
 
-| Skill | What it does | Read more |
-| ----- | ------------ | --------- |
-| `resource-review` | Traces object and resource **lifetimes** across the C++/C and native/JS boundaries and reports only **proven** memory/resource defects — use-after-free, double/mismatched free, memory and handle/fd leaks, out-of-bounds read/write, uninitialized reads, integer overflow/truncation, TOCTOU, data races, and Node-API misuse (call-scoped handles, reference/handle-scope leaks, finalizer-timing hazards, threadsafe-function imbalance, exceptions crossing the C ABI). Proof is a sanitizer trace, a reproducer, or a fully traced lifetime — a proof gate, not confidence scores. | Grounded in CWE, SEI CERT, the C++ Core Guidelines, and the AddressSanitizer/Valgrind and Node-API docs. See [ATTRIBUTION.md](plugins/cpp/skills/resource-review/ATTRIBUTION.md). |
-| `project-setup` | Assesses applicable preventive controls for a cross-platform native build: **node-gyp/binding.gyp** anatomy, **per-OS/per-arch compiler & linker hardening** (arch-gated so nothing hard-errors), **sanitizer + clang-tidy + CI** wiring and suppression discipline, **prebuilds/supply-chain** for glibc/musl/arm64 and vendored C sources, and **maintainable modern-C++ conventions** (RAII, ownership, rule of five, exception safety across the C ABI). Reports evidence-backed **Met / Gap / Not applicable / Needs verification** states and remediation priorities—not defect severity. | Synthesizes the OpenSSF Compiler Hardening Guide, C++ Core Guidelines, and official compiler/node-gyp/Node-API docs, credits toolchain defaults, and filters inapplicable flags. See [ATTRIBUTION.md](plugins/cpp/skills/project-setup/ATTRIBUTION.md). |
-
-## Install
+Add this GitHub repository as a marketplace, then install any plugins you want:
 
 ```shell
-# Add the marketplace (from GitHub: owner/repo)
-/plugin marketplace add photostructure/claude-code-skills
+codex plugin marketplace add photostructure/coding-skills
+codex plugin add coding@photostructure
+codex plugin add security@photostructure
+codex plugin add cpp@photostructure
+```
 
-# Install the plugins you want
+Enter `/plugins` in the Codex CLI to browse configured marketplaces and manage
+plugins. Start a new task after installation so Codex discovers the bundled
+skills.
+
+Type `$` in a prompt to select a skill explicitly. Installed plugin skills are
+namespaced by plugin, for example:
+
+```text
+$coding:replan
+$coding:review
+$coding:stage
+$security:web-security-review
+$security:web-security-hardening
+$cpp:resource-review
+$cpp:project-setup
+```
+
+Codex can also invoke a skill implicitly when the request matches its
+description.
+
+### Test locally in Codex
+
+Use a disposable, empty directory as `CODEX_HOME` so development installs do
+not affect your normal Codex configuration. Set that environment variable using
+your shell's normal syntax, then run:
+
+```shell
+codex plugin marketplace add /absolute/path/to/coding-skills
+codex plugin list
+codex plugin add coding@photostructure
+codex plugin add security@photostructure
+codex plugin add cpp@photostructure
+codex plugin list
+```
+
+Confirm the installed cache contains version `1.0.0`, then start a fresh Codex
+task under the same disposable `CODEX_HOME` and verify the `$` skill picker sees
+all 13 skills. Remove only that disposable directory when finished.
+
+## Install in Claude Code
+
+The original Claude Code marketplace and manifests remain supported:
+
+```shell
+/plugin marketplace add photostructure/coding-skills
 /plugin install coding@photostructure
 /plugin install security@photostructure
 /plugin install cpp@photostructure
 ```
 
-Then invoke any skill — plugin skills are namespaced by the plugin name:
+Invoke Claude Code skills with their plugin namespace:
 
-```shell
+```text
 /coding:replan
 /coding:review
 /coding:gitplan
@@ -62,98 +106,120 @@ Then invoke any skill — plugin skills are namespaced by the plugin name:
 /cpp:project-setup
 ```
 
-To try it locally before publishing:
+### Test locally in Claude Code
+
+Point Claude Code at the repository root instead of the GitHub shorthand:
 
 ```shell
-/plugin marketplace add /home/mrm/src/claude-code-skills
+/plugin marketplace add /absolute/path/to/coding-skills
 /plugin install coding@photostructure
 /plugin install security@photostructure
 /plugin install cpp@photostructure
 ```
 
-## Layout
+Start a new task after installing or updating a plugin before testing its
+skills.
+
+## Repository layout
 
 ```text
-claude-code-skills/
+coding-skills/
+├── .agents/
+│   └── plugins/
+│       └── marketplace.json       # native Codex marketplace
 ├── .claude-plugin/
-│   └── marketplace.json        # marketplace catalog (name: photostructure)
-└── plugins/
-    ├── coding/                 # workflow skills (namespaced as /coding:<name>)
-    │   ├── .claude-plugin/
-    │   │   └── plugin.json
-    │   └── skills/
-    │       ├── replan/SKILL.md
-    │       ├── review/SKILL.md
-    │       ├── review-staged/SKILL.md
-    │       ├── double-review/SKILL.md
-    │       ├── gitplan/SKILL.md
-    │       ├── stage/SKILL.md
-    │       ├── tpp/
-    │       │   ├── SKILL.md
-    │       │   └── TPP-GUIDE.md    # bundled reference guide (project docs/TPP-GUIDE.md wins)
-    │       ├── handoff/SKILL.md
-    │       └── tpp-orchestrate/SKILL.md
-    ├── security/               # security skills (namespaced as /security:<name>)
-    │   ├── .claude-plugin/
-    │   │   └── plugin.json
-    │   └── skills/
-    │       ├── web-security-review/
-    │       │   ├── SKILL.md            # proven-vulnerability orchestrator
-    │       │   ├── references/         # vulnerability guidance loaded on demand
-    │       │   ├── ATTRIBUTION.md
-    │       │   └── LICENSE
-    │       └── web-security-hardening/
-    │           ├── SKILL.md            # applicability-aware ASVS orchestrator
-    │           ├── references/         # hardening guidance loaded on demand
-    │           ├── ATTRIBUTION.md
-    │           └── LICENSE
-    └── cpp/                    # modern-C++ native-addon skills (namespaced as /cpp:<name>)
-        ├── .claude-plugin/
-        │   └── plugin.json
-        └── skills/
-            ├── resource-review/
-            │   ├── SKILL.md            # proof-gated memory/resource-defect orchestrator
-            │   ├── references/         # defect classes, N-API model, proof/tooling, report format
-            │   ├── ATTRIBUTION.md
-            │   └── LICENSE
-            └── project-setup/
-                ├── SKILL.md            # applicability-aware build/hardening orchestrator
-                ├── references/         # build, compiler hardening, sanitizers, CI, conventions
-                ├── ATTRIBUTION.md
-                └── LICENSE
+│   └── marketplace.json           # Claude Code marketplace
+├── plugins/
+│   ├── coding/
+│   │   ├── .codex-plugin/plugin.json
+│   │   ├── .claude-plugin/plugin.json
+│   │   └── skills/
+│   │       ├── <skill>/
+│   │       │   ├── SKILL.md       # shared instructions
+│   │       │   └── agents/
+│   │       │       └── openai.yaml
+│   │       ├── stage/scripts/stage_hunks.py
+│   │       └── tpp/TPP-GUIDE.md
+│   ├── security/
+│   │   ├── .codex-plugin/plugin.json
+│   │   ├── .claude-plugin/plugin.json
+│   │   └── skills/
+│   │       └── <skill>/
+│   │           ├── SKILL.md
+│   │           ├── agents/openai.yaml
+│   │           ├── references/
+│   │           ├── ATTRIBUTION.md
+│   │           └── LICENSE
+│   └── cpp/
+│       ├── .codex-plugin/plugin.json
+│       ├── .claude-plugin/plugin.json
+│       └── skills/
+│           └── <skill>/
+│               ├── SKILL.md
+│               ├── agents/openai.yaml
+│               ├── references/
+│               ├── ATTRIBUTION.md
+│               └── LICENSE
+└── scripts/
+    └── validate_repository.py
 ```
 
-## Adapting
+## Validation
 
-These skills are intentionally generic. Each `SKILL.md` ends with an "Adapting for
-your project" note — point them at your `CLAUDE.md`/`AGENTS.md`, add domain-specific
-critique or review checks, and tune the strictness to taste.
+Run the repository validator from the root:
+
+```shell
+python3 scripts/validate_repository.py
+```
+
+Before publishing, also run the current Codex `$skill-creator` validator for
+every skill, the `$plugin-creator` validator for every plugin, parse both
+marketplace JSON files, check relative Markdown links, and run
+`git diff --check`. Test both marketplace installations in fresh tasks.
+
+## Adapting the workflows
+
+The skills are intentionally generic. Prefer durable project instructions in
+`AGENTS.md`; also honor `CLAUDE.md` when a repository uses it for Claude Code
+compatibility. Each skill's adaptation section identifies the project-specific
+invariants, references, or review checks worth adding.
+
+## Versioning and marketplace updates
+
+Every native `.codex-plugin/plugin.json` uses strict Semantic Versioning. The
+initial native release is `1.0.0`. Bump the patch version for compatible fixes,
+the minor version for backward-compatible capability additions, and the major
+version for breaking workflow or packaging changes.
+
+The marketplace catalog has no version field. The unqualified
+`photostructure/coding-skills` source follows the repository's default branch
+when Codex adds or upgrades the marketplace snapshot. A plugin's manifest
+version identifies the installed cache entry; it does not pin the marketplace
+repository. Bump that version whenever published plugin content changes so the
+cached copy has a distinct identity.
+
+For a reproducible marketplace snapshot, pin a Git tag, commit, or branch with
+`owner/repo@ref` or `codex plugin marketplace add owner/repo --ref <ref>`.
+Repository tags are release bookkeeping unless the marketplace source is
+explicitly pinned to one.
+
+During unpublished local iteration, follow the current `$plugin-creator`
+cachebuster/reinstall workflow. Use stable SemVer values for published plugin
+content rather than treating every commit on the tracked branch as a release.
 
 ## Further reading
 
-The thinking behind these skills, on [photostructure.com/coding](https://photostructure.com/coding/):
-
-- [Claude picks the first idea that works. Make it pick the best one.](https://photostructure.com/coding/claude-code-replan/) — why `replan` exists: defeating Claude's tendency to satisfice.
-- [Most AI code reviews are noise. Here's how to fix that.](https://photostructure.com/coding/claude-code-review/) — the proof-before-reporting rule behind `review` and `review-staged`.
-- [Claude Code has amnesia. So do PRs, changelogs, and your future self.](https://photostructure.com/coding/claude-code-tpp/) — Technical Project Plans, the system behind `tpp`, `handoff`, and `tpp-orchestrate`.
-- [The LLM sycophancy antidote](https://photostructure.com/coding/you-are-absolutely-right/) — making Claude push back instead of agreeing.
-- [If something is odd, inappropriate, confusing, or boring, it is probably important.](https://photostructure.com/coding/odd-inappropriate-confusing-or-boring/) — a code-review philosophy.
-- [Uncertain, lazy, forgetful, & impatient: it's what you want your code to be.](https://photostructure.com/coding/uncertain-lazy-forgetful-and-impatient/) — the design values these skills enforce.
-
-## Versioning
-
-`plugin.json` has no `version` field, so while this marketplace is hosted in git every
-commit counts as a new version and `/plugin update` picks up changes automatically.
-Add an explicit `version` once you want stable, opt-in releases.
+- [Claude picks the first idea that works. Make it pick the best one.](https://photostructure.com/coding/claude-code-replan/)
+- [Most AI code reviews are noise. Here's how to fix that.](https://photostructure.com/coding/claude-code-review/)
+- [Claude Code has amnesia. So do PRs, changelogs, and your future self.](https://photostructure.com/coding/claude-code-tpp/)
+- [The LLM sycophancy antidote](https://photostructure.com/coding/you-are-absolutely-right/)
+- [If something is odd, inappropriate, confusing, or boring, it is probably important.](https://photostructure.com/coding/odd-inappropriate-confusing-or-boring/)
+- [Uncertain, lazy, forgetful, & impatient: it's what you want your code to be.](https://photostructure.com/coding/uncertain-lazy-forgetful-and-impatient/)
 
 ## License
 
-MIT © Matthew McEachen — except the `security` and `cpp` plugins' skills, which are
-distributed under **CC BY-SA 4.0** because they adapt CC BY-SA reference material (OWASP
-for `security`; cppreference for `cpp`). The C++ skills also adapt SEI CERT standards prose
-under CC BY 4.0 and consult the C++ Core Guidelines under their custom license. See the
-licenses and attribution for
-[web-security-review](plugins/security/skills/web-security-review/LICENSE),
-[web-security-hardening](plugins/security/skills/web-security-hardening/LICENSE),
-[resource-review](plugins/cpp/skills/resource-review/LICENSE), and
-[project-setup](plugins/cpp/skills/project-setup/LICENSE).
+MIT © Matthew McEachen, except the `security` and `cpp` plugin skills, which
+are distributed under CC BY-SA 4.0 because they adapt CC BY-SA reference
+material. The C++ skills also adapt SEI CERT standards prose under CC BY 4.0
+and consult the C++ Core Guidelines under their custom license. See each
+skill's `LICENSE` and `ATTRIBUTION.md` for details.
