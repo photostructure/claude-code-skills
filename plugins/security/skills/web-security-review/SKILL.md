@@ -1,8 +1,6 @@
 ---
 name: web-security-review
 description: Security code review for JavaScript/TypeScript web applications. Use when asked to "security review", "find vulnerabilities", "check for security issues", "audit security", "OWASP review", "is this secure?", or to review Node/Express/React/Vue/Next/Nest/Angular code for database/storage security (SQL, MongoDB, Redis, LevelDB), XSS, authentication, authorization (IDOR/BOLA), SSRF, CSRF, deserialization, secrets, or crypto issues. Traces data flow, reasons like a security researcher, and reports only findings with concrete data-flow, exposure, or configuration proof — never confidence-scored guesses.
-allowed-tools: Read, Grep, Glob, Bash, Agent, WebFetch, WebSearch
-license: CC-BY-SA-4.0
 ---
 
 # Web Security Review (JavaScript / TypeScript)
@@ -241,7 +239,7 @@ Load on demand — keep SKILL.md context lean.
 
 ## Adapting for your project
 
-Point this skill at your `CLAUDE.md`/`AGENTS.md` for the app's threat model, trusted
+Point this skill at `AGENTS.md` and optional `CLAUDE.md` for the app's threat model, trusted
 inputs, and auth boundaries. Add project-specific safe patterns (your validation
 layer, your ORM conventions) to `references/false-positives.md` so the review stops
 re-flagging them, and add any bespoke sinks to `references/vuln-classes.md`.

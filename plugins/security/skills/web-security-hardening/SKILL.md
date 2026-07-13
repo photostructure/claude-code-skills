@@ -1,8 +1,6 @@
 ---
 name: web-security-hardening
 description: Security best-practices and hardening review for JavaScript/TypeScript web applications. Use when asked to harden an app, review security posture or secure defaults, assess OWASP ASVS alignment, improve HTTP headers or CSP, review forms/input validation/sanitization/uploads, strengthen authentication/passwords/sessions/secrets, or evaluate deployment/operations controls. Produces an applicability-aware baseline gap analysis (Met / Gap / Not applicable / Needs verification), not exploit severity findings.
-allowed-tools: Read, Grep, Glob, Bash, WebFetch, WebSearch
-license: CC-BY-SA-4.0
 ---
 
 # Web Security Hardening
@@ -32,7 +30,7 @@ Keep this skill separate from `web-security-review`:
 
 Do not call a missing control a vulnerability or assign CVSS-style severity without a
 concrete attack path. If the review uncovers a proven exploit, list it separately under
-**Escalate to vulnerability review** and recommend `/security:web-security-review`; do
+**Escalate to vulnerability review** and recommend the `web-security-review` skill; do
 not mix it into hardening counts.
 
 ## Core rules

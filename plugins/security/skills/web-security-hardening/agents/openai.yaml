@@ -1,0 +1,4 @@
+interface:
+  display_name: "Web Security Hardening"
+  short_description: "Assess applicable web security controls"
+  default_prompt: "Use $security:web-security-hardening to assess this app's preventive security controls."

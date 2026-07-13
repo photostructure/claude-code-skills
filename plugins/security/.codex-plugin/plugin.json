@@ -1,0 +1,38 @@
+{
+  "name": "security",
+  "version": "1.0.0",
+  "description": "Proof-gated vulnerability review and applicability-aware security hardening for JavaScript and TypeScript web applications.",
+  "author": {
+    "name": "Matthew McEachen",
+    "url": "https://photostructure.com/coding/"
+  },
+  "homepage": "https://photostructure.com/coding/",
+  "repository": "https://github.com/photostructure/coding-skills",
+  "license": "CC-BY-SA-4.0",
+  "keywords": [
+    "skills",
+    "security",
+    "security-review",
+    "security-hardening",
+    "owasp",
+    "asvs",
+    "javascript",
+    "typescript",
+    "web-security"
+  ],
+  "skills": "./skills/",
+  "interface": {
+    "displayName": "Web Security",
+    "shortDescription": "Review vulnerabilities and hardening controls",
+    "longDescription": "Two complementary workflows for proven JavaScript and TypeScript web vulnerabilities and OWASP ASVS-guided preventive-control assessments.",
+    "developerName": "PhotoStructure",
+    "category": "Security",
+    "capabilities": [
+      "Read"
+    ],
+    "defaultPrompt": [
+      "Review this web application for proven vulnerabilities.",
+      "Assess this application against an ASVS-guided hardening baseline."
+    ]
+  }
+}
