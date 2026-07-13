@@ -4,7 +4,7 @@
 
 Conventions for clear, maintainable, safe C++17 in Node.js native addons (node-addon-api /
 Node-API, built with node-gyp) and general modern C++. These are the habits that prevent the
-defects `/cpp:resource-review` hunts: leaks, double-frees, use-after-free, dangling views,
+defects the `resource-review` skill hunts: leaks, double-frees, use-after-free, dangling views,
 data races, and exceptions crossing the C ABI. Rule IDs are C++ Core Guidelines unless marked
 CERT (`DCL57-CPP`) or CWE. Flags and clang-tidy wiring live in `compiler-hardening.md`,
 `sanitizers-and-analysis.md`, and `build-and-toolchain.md` — this file is about the code.
@@ -277,7 +277,7 @@ touch it. Marshal narrow, strongly-typed values (I.4); ownership crosses by valu
 owning containers), never by raw pointer (I.11); non-owning views never escape the call. With
 `NAPI_CPP_EXCEPTIONS` + `node_addon_api_except_all`, core `std::exception`s auto-translate at the
 seam, so the glue stays tiny — add a `try/catch` only to *map* a specific C++ error to a specific
-JS type. See `report-format.md` and `defect-classes.md` for how `/cpp:resource-review` reads it.
+JS type. See `report-format.md` and `defect-classes.md` for how the `resource-review` skill reads it.
 
 ## Maintainability: fail fast, split, DRY
 

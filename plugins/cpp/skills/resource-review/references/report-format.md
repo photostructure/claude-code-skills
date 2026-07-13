@@ -2,7 +2,7 @@
 
 # Report Format
 
-Output template for `/cpp:resource-review`. Summary table first, findings grouped
+Output template for the `resource-review` skill. Summary table first, findings grouped
 by **defect class** (not by file), every finding backed by a concrete PROOF, patches
 proposed but **never** auto-applied. A finding without a named tool + exact diagnostic
 (or a traced lifetime/reproducer) is a lead, not a finding — put it under *Needs

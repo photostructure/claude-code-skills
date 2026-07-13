@@ -1,8 +1,6 @@
 ---
 name: resource-review
 description: Memory- and resource-safety code review for modern C/C++ (C++17), including Node.js native addons (node-addon-api / Node-API). Use when asked to "review C++/C for memory safety", "find a memory leak", "why does this segfault", "check for use-after-free / double-free / buffer overflow / data race", "resource/handle/fd leak", "review this native addon", "N-API / node-addon-api review", or to check native code with AddressSanitizer/UBSan/TSan/Valgrind. Traces object and resource lifetimes and reports only defects backed by a sanitizer trace, a reproducer, or a fully traced lifetime — never pattern-match guesses.
-allowed-tools: Read, Grep, Glob, Bash, WebFetch, WebSearch, Task
-license: CC-BY-SA-4.0
 ---
 
 # C/C++ Resource & Memory Review
@@ -14,7 +12,7 @@ report only what you can back with concrete proof. Signal over noise.
 
 This skill finds *defects* (a leak, a use-after-free, a race that actually exists). For
 "is this project set up with the right hardening flags, sanitizers, CI, and conventions?"
-use `/cpp:project-setup`, which assesses preventive controls, not exploitable bugs. A
+use the `project-setup` skill, which assesses preventive controls, not exploitable bugs. A
 missing hardening flag is not a defect; a heap-buffer-overflow is.
 
 ## Scope
@@ -24,8 +22,9 @@ Node.js native addons (`Napi::ObjectWrap`, `AsyncWorker`, `ThreadSafeFunction`,
 finalizers), the C ABI boundary between C++ and C libraries, and the `binding.gyp`
 defines that change runtime behavior.
 
-**Out of scope:** the surrounding JavaScript/TypeScript (defer to `/security:web-security-review`),
-and pure build-hardening/convention gaps (defer to `/cpp:project-setup`).
+**Out of scope:** the surrounding JavaScript/TypeScript (defer to
+the `web-security-review` skill), and pure build-hardening/convention gaps (defer to
+the `project-setup` skill).
 
 ### Report vs. research — the prime directive
 
@@ -65,7 +64,7 @@ evidence. Every candidate is in exactly one state:
 | --------------- | ------------------------------------------------------------------------- | ----------------------------------------------- |
 | **Proven**      | one complete proof shape above, with the lifetime error described concretely | **Report**, with that proof in the finding   |
 | **Lead**        | a suspicious lifetime, ownership ambiguity, or static-analyzer hit with a missing proof element | List under **"Needs verification"** as a question |
-| **Theoretical** | a pattern match, style nit, or missing hardening control with no demonstrable error | **Drop** (hardening belongs to `/cpp:project-setup`) |
+| **Theoretical** | a pattern match, style nit, or missing hardening control with no demonstrable error | **Drop** (hardening belongs to the `project-setup` skill) |
 
 Read [`references/proof-and-tooling.md`](./references/proof-and-tooling.md) before
 reporting anything — it defines how to obtain each proof and the false-positive
@@ -148,7 +147,7 @@ complete traced-lifetime proof with `file:line` for every step, or downgrade it 
 ### 6. Adversarial self-verification
 
 For each surviving candidate, **try to refute it** before it makes the report. For a
-non-trivial finding set, launch one `Task` subagent per candidate **in parallel**, each
+non-trivial finding set, launch one validation subagent per candidate **in parallel**, each
 instructed to disprove the defect using `references/proof-and-tooling.md`:
 
 - Re-read the lifetime with fresh eyes. Is release *actually* missing, or is there an
@@ -174,7 +173,7 @@ defects identified in <scope>."
 
 For each Critical/High finding, propose a concrete, minimal patch (vulnerable → fixed),
 preserving surrounding style and names, and prefer the RAII/ownership fix that removes the
-class of bug (see `/cpp:project-setup`'s `modern-cpp-conventions.md`) over a one-off
+class of bug (see the `project-setup` skill's `modern-cpp-conventions.md`) over a one-off
 patch. State plainly: **"Review each patch before applying — nothing has been changed."**
 Never edit files as part of the review unless the user explicitly asks.
 
@@ -212,7 +211,7 @@ Load on demand — keep SKILL.md context lean.
 
 ## Adapting for your project
 
-Point this skill at your `CLAUDE.md`/`AGENTS.md` for the module's threading model,
+Point this skill at `AGENTS.md` and optional `CLAUDE.md` for the module's threading model,
 ownership conventions, and known-safe patterns. Record the project's real invariants (for
 example "statements are single-threaded by construction", "explicit close orders native
 teardown before finalization") in `references/napi-resource-model.md` so the review credits them

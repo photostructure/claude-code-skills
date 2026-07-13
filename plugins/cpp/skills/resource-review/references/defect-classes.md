@@ -10,7 +10,7 @@ plus the exact diagnostic it emits, not a hunch. Reason about data flow and owne
 only to find candidates (see [Recognition grep starters](#recognition-grep-starters)). Tooling
 detail lives in `proof-and-tooling.md`; addon lifetime rules (`napi_value`, handle scopes,
 `napi_ref`, finalizers) live in `napi-resource-model.md`; build/flag detail lives in the
-`/cpp:project-setup` skill's `compiler-hardening.md` and `sanitizers-and-analysis.md`.
+`project-setup` skill's `compiler-hardening.md` and `sanitizers-and-analysis.md`.
 
 ## Contents
 

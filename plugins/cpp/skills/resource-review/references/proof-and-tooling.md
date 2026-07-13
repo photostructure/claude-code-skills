@@ -75,7 +75,7 @@ Two build-time corrections that matter for a *valid* sanitizer run:
   need PIE for a shared library. (MSan and TSan want PIE for a main executable, but
   you are not building one.) **ASan static linking is unsupported.** Hardening-flag
   portability (arch-gated `-fcf-protection`/`-mbranch-protection`, ELF-only
-  `-Wl,-z,*`) belongs to `/cpp:project-setup` `compiler-hardening.md`, not here.
+  `-Wl,-z,*`) belongs to the `project-setup` skill's `compiler-hardening.md`, not here.
 
 ## Loading a sanitized addon into unsanitized Node
 
@@ -231,7 +231,7 @@ a *genuine* "you used a `std::` name that doesn't exist" or a real missing-inclu
 first-party code is then filtered away as "known toolchain noise." Filtering is the
 opposite of proof: it manufactures false negatives. Fix the toolchain instead. If you
 inherit such a filter, treat any suppressed-looking diagnostic as unverified, not
-absent. Tuning which checks run at all is a `/cpp:project-setup` concern
+absent. Tuning which checks run at all is a `project-setup` concern
 (`sanitizers-and-analysis.md`), not a defect to report here.
 
 ## Suppressions: legitimate vs. bug-masking
@@ -278,7 +278,7 @@ what dynamic evidence, a reproducer, or a complete source-level lifetime trace d
 |---|---|---|
 | **Proven** | A rank 1–3 artifact: a sanitizer/Valgrind report with a stack trace into first-party code, a deterministic reproducer, or a complete traced lifetime proving an unconditional violation | **Report**, with the trace, repro, or full code path embedded as the proof |
 | **Lead** | A static-analyzer diagnostic or an incomplete/conditional lifetime trace whose guards, callers, ownership, or reachability remain unresolved | List under **"Needs verification"** as a question — not a finding |
-| **Theoretical** | A pattern match or best-practice gap (missing `-fstack-protector`, no UBSan in CI, an over-broad suppression, no `_FORTIFY_SOURCE`) with **no observed defect** | **Drop** it from a defect review. Configuration/hardening posture belongs to `/cpp:project-setup` |
+| **Theoretical** | A pattern match or best-practice gap (missing `-fstack-protector`, no UBSan in CI, an over-broad suppression, no `_FORTIFY_SOURCE`) with **no observed defect** | **Drop** it from a defect review. Configuration/hardening posture belongs to the `project-setup` skill |
 
 Signal over noise: better to omit a theoretical nit than to bury one proven
 use-after-free in ten "consider adding" remarks. And note what is **not** evidence —

@@ -1,8 +1,6 @@
 ---
 name: project-setup
 description: Setup and hardening review for cross-platform modern-C++ (C++17) native projects, especially Node.js addons built with node-gyp / node-addon-api. Use when asked to "set up a native addon", "harden a C/C++ build", "review my binding.gyp", "add compiler hardening flags", "wire up AddressSanitizer/UBSan/TSan/clang-tidy", "set up cross-platform CI / prebuilds for a native module", or "make this native code maintainable". Produces an applicability-aware baseline gap analysis (Met / Gap / Not applicable / Needs verification) across build config, per-OS/per-arch compiler hardening, sanitizer & static-analysis wiring, CI/prebuilds/supply-chain, and modern-C++ conventions — not exploit findings.
-allowed-tools: Read, Grep, Glob, Bash, WebFetch, WebSearch
-license: CC-BY-SA-4.0
 ---
 
 # Native C/C++ Project Setup & Hardening
@@ -22,7 +20,7 @@ for analysis, and official node-gyp / Node-API documentation for the addon toolc
 
 Keep this skill separate from `resource-review`:
 
-| This skill (`project-setup`)                          | `/cpp:resource-review`                        |
+| This skill (`project-setup`)                          | The `resource-review` skill                   |
 | ----------------------------------------------------- | --------------------------------------------- |
 | Asks whether applicable controls meet a baseline      | Asks whether a memory/resource defect exists  |
 | Reports evidence-backed best-practice gaps            | Reports only proven defects                   |
@@ -32,7 +30,7 @@ Keep this skill separate from `resource-review`:
 A missing stack protector or an unset sanitizer job is a hardening Gap, not a
 vulnerability. If the assessment uncovers an actual defect (a real leak, use-after-free,
 or race), list it separately under **Escalate to resource review** and recommend
-`/cpp:resource-review`; do not mix it into hardening counts or assign it a CVSS-style
+the `resource-review` skill; do not mix it into hardening counts or assign it a CVSS-style
 severity.
 
 ## Core rules
@@ -193,7 +191,7 @@ Use the structure in `baseline-and-reporting.md`:
 3. Later — Optional defense-in-depth.
 
 ### Escalate to Resource Review
-Only concrete defects, excluded from hardening counts — recommend /cpp:resource-review.
+Only concrete defects, excluded from hardening counts — recommend the `resource-review` skill.
 ```
 
 If no gaps remain, say which profile/baseline was assessed and that all applicable

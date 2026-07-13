@@ -2,7 +2,7 @@
 
 # Baseline Selection and Reporting
 
-The applicability model and reporting contract for `/cpp:project-setup`. This file
+The applicability model and reporting contract for the `project-setup` skill. This file
 decides *which* build, toolchain, and convention controls apply to *this* project,
 what counts as evidence, and how to report gaps without inventing flags.
 
@@ -168,8 +168,8 @@ severity claim, and severity belongs to a concrete defect, not a missing defense
 
 Keep the two lanes separate.
 
-- A **hardening gap** is a missing defense-in-depth control in the build/toolchain/convention baseline — e.g. no `-fstack-protector-strong`, no full RELRO, visibility not applied, no TSan job. It has no proof-of-exploit; it raises the cost of *some* future bug. This skill (`/cpp:project-setup`) owns these.
-- An **exploitable defect** is a concrete first-party bug with a data-flow: use-after-free across GC/teardown order, TOCTOU on a path, an unbounded/mis-sized `memcpy`, integer overflow feeding an allocation (CWE-190), a raw exception crossing the ABI, silent truncation of data. These are **not** baseline gaps — escalate them to **`/cpp:resource-review`** (`defect-classes.md`, `napi-resource-model.md`, `proof-and-tooling.md`, `report-format.md`), which requires a reproduction or a proof path.
+- A **hardening gap** is a missing defense-in-depth control in the build/toolchain/convention baseline — e.g. no `-fstack-protector-strong`, no full RELRO, visibility not applied, no TSan job. It has no proof-of-exploit; it raises the cost of *some* future bug. The `project-setup` skill owns these.
+- An **exploitable defect** is a concrete first-party bug with a data-flow: use-after-free across GC/teardown order, TOCTOU on a path, an unbounded/mis-sized `memcpy`, integer overflow feeding an allocation (CWE-190), a raw exception crossing the ABI, silent truncation of data. These are **not** baseline gaps — escalate them to the **`resource-review` skill** (`defect-classes.md`, `napi-resource-model.md`, `proof-and-tooling.md`, `report-format.md`), which requires a reproduction or a proof path.
 
 When project-setup work surfaces a probable defect, note it and hand it off; do not
 launder it into a "missing flag." When a review finds that a defect is only reachable
@@ -230,7 +230,7 @@ missing mitigation here.
 ## Not applicable
 - <control> — <reason: e.g. macOS-only build, ld64 rejects -Wl,-z,*>
 
-## Probable defects (→ /cpp:resource-review)
+## Probable defects (→ `resource-review`)
 - <defect + why it is a bug, not a baseline gap>
 
 ## Remediation roadmap

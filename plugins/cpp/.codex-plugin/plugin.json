@@ -1,0 +1,39 @@
+{
+  "name": "cpp",
+  "version": "1.0.0",
+  "description": "Memory and resource safety review plus cross-platform build hardening for modern C++ projects and Node.js native addons.",
+  "author": {
+    "name": "Matthew McEachen",
+    "url": "https://photostructure.com/coding/"
+  },
+  "homepage": "https://photostructure.com/coding/",
+  "repository": "https://github.com/photostructure/coding-skills",
+  "license": "CC-BY-SA-4.0",
+  "keywords": [
+    "skills",
+    "cpp",
+    "modern-cpp",
+    "memory-safety",
+    "resource-management",
+    "node-api",
+    "node-addon-api",
+    "node-gyp",
+    "sanitizers",
+    "compiler-hardening"
+  ],
+  "skills": "./skills/",
+  "interface": {
+    "displayName": "Modern C++",
+    "shortDescription": "Review native safety and harden C++ builds",
+    "longDescription": "Two evidence-focused workflows for proving C++ memory and resource defects and assessing cross-platform native build hardening.",
+    "developerName": "PhotoStructure",
+    "category": "Developer Tools",
+    "capabilities": [
+      "Read"
+    ],
+    "defaultPrompt": [
+      "Trace this native code for proven memory or resource defects.",
+      "Assess this C++ project build and hardening baseline."
+    ]
+  }
+}

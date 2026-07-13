@@ -1,0 +1,4 @@
+interface:
+  display_name: "C++ Resource Review"
+  short_description: "Prove native memory and resource defects"
+  default_prompt: "Use $cpp:resource-review to trace this native code for proven resource defects."

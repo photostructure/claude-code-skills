@@ -338,8 +338,8 @@ deployment target, and stays no-exceptions by default (swap the dep target to
 ```
 
 Layer `compiler-hardening.md`, `sanitizers-and-analysis.md`, and `ci-and-release.md` on top of this
-skeleton. This skill runs as `/cpp:project-setup`; the resource-hygiene review runs as
-`/cpp:resource-review`.
+skeleton. This is the `project-setup` skill; the resource-hygiene review is the
+`resource-review` skill.
 
 ## Primary sources
 

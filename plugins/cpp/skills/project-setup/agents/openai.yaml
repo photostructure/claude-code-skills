@@ -1,0 +1,4 @@
+interface:
+  display_name: "Native Project Setup"
+  short_description: "Assess and harden cross-platform C++ builds"
+  default_prompt: "Use $cpp:project-setup to assess this native project's build and hardening baseline."
