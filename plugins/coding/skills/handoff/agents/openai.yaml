@@ -1,0 +1,4 @@
+interface:
+  display_name: "TPP Handoff"
+  short_description: "Prepare a Technical Project Plan handoff"
+  default_prompt: "Use $coding:handoff to update the active TPP for a clean session handoff."

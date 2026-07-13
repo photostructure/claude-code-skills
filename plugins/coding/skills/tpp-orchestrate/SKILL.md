@@ -1,7 +1,6 @@
 ---
 name: tpp-orchestrate
-description: Work through a queue of Technical Project Plans serially — delegate each to a TDD subagent, double-review the result with codex and a Claude /review subagent, empirically vet every finding before accepting or vetoing it, and land one coherent commit per plan. Use when executing a documented plan queue such as _todo/ or _feat-<name>/ for a port, migration, or multi-stage feature.
-allowed-tools: Bash, Read, Glob, Grep, Edit, Write, Task, Agent, AskUserQuestion
+description: Work through a queue of Technical Project Plans serially — delegate each to a TDD subagent, run two independent reviews, empirically vet every finding, and land one coherent commit per plan. Use when executing a documented plan queue such as _todo/ or _feat-name/ for a port, migration, or multi-stage feature.
 ---
 
 # TPP Orchestration
@@ -30,7 +29,8 @@ So: delegate, review twice, and vet everything with evidence.
 
 - Read the roadmap and every queued TPP's summary. Confirm dependency order.
 - Identify the project's **ground truth** — the thing a disputed finding can be tested against: a reference implementation you can execute, a spec with runnable examples, the real runtime/API. Write down _how_ to query it (the exact command). If there is no executable ground truth, say so and agree on the fallback (spec text, maintainer decision) with the user.
-- Ask clarifying questions **now** (`AskUserQuestion`) — scope ambiguities are cheapest to resolve before any code exists.
+- Ask the user any clarifying questions **now** — scope ambiguities are cheapest
+  to resolve before any code exists.
 
 ## The loop, per TPP
 
@@ -42,28 +42,37 @@ Read the TPP and its sources of truth. If anything is ambiguous or the plan cont
 
 ### 2. Delegate with TDD
 
-Launch an implementation subagent. Pick the model by risk: a stronger model (opus-class) for large, novel, or weakly-specified work; a faster one (sonnet-class) when the TPP and existing tests pin the behavior tightly.
+Launch an implementation subagent through the host's available collaboration
+mechanism. Select the strongest available model and higher reasoning effort for
+large, novel, security-sensitive, or weakly specified work. Use a faster model
+or moderate reasoning effort only when the TPP, reference behavior, and existing
+tests pin the implementation tightly. If the surface does not expose model
+selection, keep the same risk-based scrutiny in the prompt and review gate.
 
 The prompt must include:
 
 - The TPP path and the sources of truth (spec files, reference implementation paths).
 - **Tests first**: port or write the acceptance tests before implementing, then implement until green. The _full_ suite must stay green — not just the new tests.
-- Project pitfalls relevant to this TPP (from `CLAUDE.md` or the TPP itself).
+- Project pitfalls relevant to this TPP (from `AGENTS.md`, optional
+  `CLAUDE.md`, or the TPP itself).
 - "You cannot talk to the user. Record open questions, assumptions you made, and every intentional divergence from the plan in your final report."
 
 ### 3. Relay questions
 
-Triage the subagent's open questions. Decision-worthy ones go to the user (`AskUserQuestion`) **before** the review gate — a review of code built on a wrong assumption is wasted.
+Triage the subagent's open questions. Ask the user about decision-worthy ones
+**before** the review gate — a review of code built on a wrong assumption is
+wasted.
 
 ### 4. Review twice, independently
 
 Run the double-review gate on the TPP's diff — read and follow
-[../double-review/SKILL.md](../double-review/SKILL.md): two independent
-reviewers (codex + a Claude review subagent) over the identical scope, blind
-to each other, while you read the new code yourself as the third reviewer —
-the only one who knows the whole roadmap. Scope both reviewer prompts with
-this TPP's spec/reference files, the diff range, and a scrutiny list of the
-riskiest areas the plan touches.
+[../double-review/SKILL.md](../double-review/SKILL.md): use two independent,
+mutually blind reviewers through the host's available collaboration mechanisms over
+the identical scope, while you read the new code yourself as the third
+reviewer — the only one who knows the whole roadmap. Scope both reviewer
+prompts with this TPP's spec/reference files, the diff range, and a scrutiny
+list of the riskiest areas the plan touches. Use an external reviewer only when
+the revised gate requires its fallback.
 
 ### 5. Vet every finding — accept and veto only with proof
 

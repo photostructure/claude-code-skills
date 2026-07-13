@@ -1,0 +1,4 @@
+interface:
+  display_name: "TPP Orchestration"
+  short_description: "Execute a queue of plans with review gates"
+  default_prompt: "Use $coding:tpp-orchestrate to execute this TPP queue with independent review gates."

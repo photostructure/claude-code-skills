@@ -1,8 +1,6 @@
 ---
 name: handoff
 description: Update the active Technical Project Plan for handoff when context is running low or the session is ending, so the next session continues instead of restarting.
-disable-model-invocation: false
-allowed-tools: Read, Edit, Write, Glob
 ---
 
 # TPP Handoff
@@ -17,7 +15,7 @@ the file, or the next session re-learns it the hard way.
 
 Before any work, you MUST read:
 
-- The project's instructions: `CLAUDE.md` and/or `AGENTS.md`, if present
+- The project's instructions: `AGENTS.md`, plus `CLAUDE.md` when present
 - The project's TPP guide: `docs/TPP-GUIDE.md` if it exists; otherwise the
   bundled reference [TPP-GUIDE.md](../tpp/TPP-GUIDE.md)
 
@@ -32,7 +30,7 @@ Before any work, you MUST read:
 6. Trim redundancy before saving: the TPP is a curated brief, not a transcript.
    Keep it under 400 lines; if that's impossible, propose splitting it.
 
-The bar: the next session should be able to run `/tpp path/to/file.md` and
+The bar: the next session should be able to invoke the `tpp` skill with the plan path and
 continue without asking what happened last time.
 
 ## Adapting for your project

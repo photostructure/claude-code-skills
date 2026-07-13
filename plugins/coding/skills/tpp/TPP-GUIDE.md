@@ -158,7 +158,8 @@ Short description of the problem, under 10 lines.
 
 YOU MUST study these before continuing. Work may be rejected if you skip them.
 
-- **[CLAUDE.md](../CLAUDE.md)**: project structure, local rules, test commands
+- **AGENTS.md**: project structure, local rules, and verification commands
+- **CLAUDE.md** (when present): additional compatibility instructions
 - **[TPP-GUIDE.md](./TPP-GUIDE.md)**: this workflow
 - Add project-specific design, testing, API, and architecture docs here
 - Add source files that define the subsystem
@@ -216,5 +217,5 @@ When context is running low or the session is ending:
 5. Clarify exactly what remains.
 6. Trim redundancy before saving.
 
-The next session should be able to run `/tpp path/to/file.md`, read the TPP, and
-continue without asking what happened last time.
+The next session should be able to invoke the `tpp` skill with the plan path, read the
+TPP, and continue without asking what happened last time.

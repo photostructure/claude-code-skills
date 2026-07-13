@@ -1,9 +1,6 @@
 ---
 name: tpp
 description: Work on a Technical Project Plan — read the plan, identify the current phase, do that phase's work, and update the plan with discoveries. Use when starting or resuming multi-session work tracked in a plan file.
-argument-hint: "[path-to-tpp]"
-disable-model-invocation: false
-allowed-tools: Bash, Read, Glob, Grep, Edit, Write, WebSearch, Skill
 ---
 
 # Work on TPP
@@ -21,7 +18,7 @@ appropriate action.
 
 Before any work, you MUST read:
 
-- The project's instructions: `CLAUDE.md` and/or `AGENTS.md`, if present
+- The project's instructions: `AGENTS.md`, plus `CLAUDE.md` when present
 - The project's TPP guide: `docs/TPP-GUIDE.md` if it exists; otherwise the
   bundled reference [TPP-GUIDE.md](TPP-GUIDE.md)
 
@@ -35,9 +32,8 @@ Before any work, you MUST read:
 4. Update the TPP with progress and discoveries — gotchas, rejected approaches,
    and the _why_ behind decisions, not a transcript.
 
-When context runs low before the work is done, run the `handoff` skill rather
-than letting the session end silently. When the TPP is complete, move it to
-`_done/`.
+When context runs low before the work is done, invoke the `handoff` skill rather than
+letting the session end silently. When the TPP is complete, move it to `_done/`.
 
 ## Adapting for your project
 
@@ -47,6 +43,6 @@ than letting the session end silently. When the TPP is complete, move it to
 - **Extend the required reading list** with your high-value docs
   (`DESIGN-PRINCIPLES.md`, `TDD.md`, architecture decisions). Every listed file
   is read on every invocation, so keep it short.
-- **Consider a system-prompt wrapper** (`claude.sh` with
-  `--append-system-prompt`) so sessions reliably write to TPPs when exiting
-  plan mode — see the article for the pattern.
+- **Automate durable reminders portably.** Put the TPP update requirement in
+  the repository's `AGENTS.md`, or use a supported project hook or automation
+  that prompts the coding agent to update the active TPP before a task ends.

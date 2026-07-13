@@ -1,0 +1,4 @@
+interface:
+  display_name: "Technical Project Plan"
+  short_description: "Continue work tracked in a living plan"
+  default_prompt: "Use $coding:tpp to continue the current phase in this Technical Project Plan."
