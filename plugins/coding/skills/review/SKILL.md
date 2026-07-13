@@ -1,7 +1,6 @@
 ---
 name: review
 description: Review code for potential issues and improvements. Use when asked to review specific files, functions, or code sections.
-allowed-tools: Bash, Read, Glob, Grep, Edit, Write, WebSearch
 ---
 
 # Code Review
@@ -14,7 +13,8 @@ Review critically — don't assume correctness. Question every design choice and
 
 ## Before you start
 
-Study the project's coding standards and design principles — e.g. `CLAUDE.md`, `AGENTS.md`, or design docs in the repo, if present.
+Study the project's coding standards and design principles — start with
+`AGENTS.md`, then honor `CLAUDE.md` and relevant design docs when present.
 
 **Only report verified bugs — things that are actually wrong.** Do NOT report:
 
@@ -34,11 +34,12 @@ For EVERY potential issue, you MUST complete these steps before reporting:
 4. **Construct a concrete failing scenario** — if you can't describe exactly how the bug manifests, it's not an issue
 5. **Discard it** if your research shows it's intentional or already handled
 
-**Use subagents along two axes: perspective and mode.**
+**When subagents are available, use them along two axes: perspective and mode.**
 
 Perspectives (run in parallel, one subagent each):
 
-- **CLAUDE.md / design-principles compliance** — audit the change against the project's written guidance
+- **Repository-guidance compliance** — audit the change against `AGENTS.md`,
+  optional `CLAUDE.md`, and the project's written design principles
 - **Shallow bug scan** — read just the diff and flag obvious logic errors, off-by-ones, missing awaits, etc.
 - **Historical context** — `git blame` and `git log` on the changed lines. Understand *why* the code is the way it is before suggesting it should be different. Check prior PR comments on the same files; past review consensus often still applies
 - **In-code constraints** — read comments adjacent to the change. They often spell out invariants the diff alone doesn't reveal
@@ -82,12 +83,17 @@ If you find zero real issues after thorough research, say "No issues found." Do 
 - **Solution**: A concrete fix
 - **Location**: File and line reference
 
-**Step 2 — only after all issue blocks are written**, use `AskUserQuestion` so the user can accept, veto, or comment on each one. The question text is just the ID (e.g. `Accept #A?`) — it is NOT a substitute for the write-up above. Never jump straight to `AskUserQuestion` without the text write-up; the user can't evaluate `#A` if they've never seen what `#A` is.
+**Step 2 — only after all issue blocks are written**, ask the user normally
+whether to accept, veto, or comment on each one. Refer to the short IDs, but do
+not use an ID-only question as a substitute for the write-up above.
 
-`Edit`, `Write`, and `Bash` are available so that, once the user accepts a finding, Claude can apply the fix and run tests to prove the bug and validate the fix in the same session. The proof-before-reporting discipline is what keeps this from turning into drive-by "improvements."
+A review request is read-only: do not implement fixes merely because you found
+an issue. Apply a fix and run its validation only after the user explicitly
+authorizes that change.
 
 ## Adapting for your project
 
-- Replace "the project's coding standards and design principles" with explicit paths (`CLAUDE.md`, `docs/DESIGN-PRINCIPLES.md`, etc.).
+- Replace "the project's coding standards and design principles" with explicit
+  paths (`AGENTS.md`, optional `CLAUDE.md`, `docs/DESIGN-PRINCIPLES.md`, etc.).
 - Add project-specific "what to look for" items (e.g. "new public APIs have rate limiting", "DB queries use parameterized inputs", "error messages don't leak internal paths").
 - Tune the exclusion list if your team *does* want style or refactor feedback. The default is strict because noise is the bigger problem.

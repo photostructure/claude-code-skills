@@ -1,0 +1,4 @@
+interface:
+  display_name: "Review Staged Changes"
+  short_description: "Verify staged changes before a commit"
+  default_prompt: "Use $coding:review-staged to review the staged diff before proposing a commit."

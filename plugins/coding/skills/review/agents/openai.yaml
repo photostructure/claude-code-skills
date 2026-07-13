@@ -1,0 +1,4 @@
+interface:
+  display_name: "Code Review"
+  short_description: "Report only verified code review issues"
+  default_prompt: "Use $coding:review to inspect this code and report only verified issues."

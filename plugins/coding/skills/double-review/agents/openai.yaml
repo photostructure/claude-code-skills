@@ -1,0 +1,4 @@
+interface:
+  display_name: "Double Review"
+  short_description: "Run two independent evidence-backed reviews"
+  default_prompt: "Use $coding:double-review to run two independent reviews and vet every finding."

@@ -1,7 +1,6 @@
 ---
 name: double-review
-description: Validation gate for freshly written code — run two independent reviews (codex CLI + a Claude review subagent) over the same scoped diff, then empirically vet every finding against ground truth before accepting or vetoing it. Use after landing a work item (especially subagent-written code) and before committing.
-allowed-tools: Bash, Read, Glob, Grep, Edit, Write, Task, Agent, AskUserQuestion
+description: Validation gate for freshly written code — run two independent, mutually blind reviews over the same scoped diff, then empirically vet every finding against ground truth before accepting or vetoing it. Use after landing a work item, especially subagent-written code, and before committing.
 ---
 
 # Double Review
@@ -43,46 +42,33 @@ Before launching anything, write down:
 
 ## 2. Launch two independent reviewers
 
-Run both against the identical scope, blind to each other:
+Use the current host's available collaboration or subagent mechanism to launch two review
+tasks concurrently. Give both reviewers the identical scope, ground-truth
+description, scrutiny list, and the methodology in
+[`../review/SKILL.md`](../review/SKILL.md): proof before reporting, a concrete
+failing scenario per finding, and "No issues found" instead of padding. Require
+`file:line` evidence for every finding.
 
-- **codex** (external reviewer):
+Keep the reviewers mutually blind:
 
-  ```bash
-  codex exec --sandbox read-only "/review <scoped prompt>" </dev/null >/tmp/codex-review.txt
-  ```
+- Start each from the scoped prompt and repository state, not from the other
+  reviewer's output or your suspected findings.
+- Do not relay interim results between them.
+- Collect both final reports before comparing overlap or disagreement.
 
-  Launch it through your **harness's own background mechanism** (in Claude
-  Code: the Bash tool's `run_in_background` — *not* a trailing shell `&`) so the
-  harness tracks the real `codex` process and delivers a genuine completion
-  notification. Then wait for that notification; don't busy-poll.
-
-  Hard-won gotchas:
-
-  - **Close stdin** (`</dev/null`) or `codex exec` hangs forever at zero CPU.
-  - **Never combine a shell `&` with the harness background flag.**
-    Double-backgrounding detaches codex: the harness tracks the *shell*, which
-    returns instantly because of the `&`, so it fires a **false "completed"** the
-    moment codex launches while the real review runs on with nothing waiting on
-    it — you end up hand-polling a growing trace. Pick exactly one backgrounder.
-  - **Reviews take minutes** (xhigh can run 10+ min on a large diff). If your
-    harness can't background-and-notify, use a shell `&` with an explicit
-    completion sentinel and poll *that* line (bounded), never the bare `&`:
-    `( codex exec … </dev/null; echo "__CODEX_DONE__ $?" ) >/tmp/codex-review.txt 2>&1 &`
-  - **codex emits a huge reasoning trace.** Extract only its final answer — the
-    last `codex`-turn block — rather than reading the whole file into context
-    (e.g. `awk '/^codex$/{n=NR} END{print n}'` then `tail -n +N`).
-
-- **A Claude review subagent** running this plugin's
-  [`../review/SKILL.md`](../review/SKILL.md) methodology: proof before
-  reporting, concrete failing scenario per finding, "No issues found" over
-  padding. Give it the same diff range and scrutiny list, and require
-  file:line + evidence for every finding.
+If the current surface cannot provide two independent internal reviewers,
+use a separate external coding reviewer for the missing pass only. Run it with
+read-only repository access, use the host's managed process and temporary-file
+APIs rather than shell-specific backgrounding or redirection, and capture only
+its final review report. If neither a second subagent nor an external reviewer
+is available, stop and report that the two-reviewer gate is incomplete.
 
 Don't idle while they grind: **read the new code yourself**. You are yet
 another reviewer, and the only one who knows the full context of what the
 change was supposed to do. If a reviewer goes silent well past its usual
-turnaround, keep working — treat a late report as a cross-check of what
-you've already verified, not a blocker.
+turnaround, keep analyzing locally while you wait, but do not complete the
+gate without two final independent reports. Replace a stalled reviewer with
+another independent reviewer or report the gate as incomplete.
 
 ## 3. Vet every finding — accept and veto only with proof
 
@@ -122,9 +108,8 @@ rediscover the same "bug" and must not re-litigate it.
   implementation via `./third-party/tool/run`", "CPython 3.12 via
   `uv run python -c ...`", "the RFC's test vectors". The vetting step is
   only as strong as this.
-- **Swap reviewers freely.** The structure needs two *independent* reviews,
-  not codex specifically — any external reviewer plus a Claude review
-  subagent works. Keep them blind to each other.
+- **Swap reviewers freely.** The invariant is two independent, mutually blind
+  reviews. Prefer the host's subagents; use an external reviewer only as a fallback.
 - **Tune the scrutiny list** to your codebase's recurring failure modes and
   bake the worst offenders into this file.
 - **Callers welcome**: other skills (e.g. `tpp-orchestrate`) reference this

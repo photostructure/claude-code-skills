@@ -1,7 +1,6 @@
 ---
 name: review-staged
 description: Review the git staged diff for verified bugs before committing, then drive a clean Conventional Commit.
-allowed-tools: Bash, Read, Glob, Grep, Edit, Write, WebSearch
 ---
 
 # Review Git Staged Changes
@@ -14,7 +13,8 @@ Review critically — don't assume correctness. Question every design choice and
 
 ## Before you start
 
-Study the project's coding standards and design principles — e.g. `CLAUDE.md`, `AGENTS.md`, or design docs in the repo, if present.
+Study the project's coding standards and design principles — start with
+`AGENTS.md`, then honor `CLAUDE.md` and relevant design docs when present.
 
 **Only report verified bugs — things that are actually wrong.** Do NOT report:
 
@@ -31,7 +31,7 @@ For EVERY potential issue, you MUST complete these steps before reporting:
 4. **Construct a concrete failing scenario** — if you can't describe exactly how the bug manifests, it's not an issue
 5. **Discard it** if your research shows it's intentional or already handled
 
-**Use subagents liberally:**
+**When subagents are available, use them where they materially improve the review:**
 
 - **Exploration**: When more than three files are staged, or the code is complex, launch Explore subagents (one per file/area) to gather findings
 - **Validation**: Before reporting ANY issue, launch a subagent to verify it — have it trace the full call chain, search for guards/handlers you might have missed, and read the relevant design docs. If the subagent can't confirm the issue, discard it
@@ -71,13 +71,16 @@ If you find zero real issues after thorough research, say "No issues found" — 
 - **Solution**: A concrete fix
 - **Location**: File and line reference
 
-**Step 2 — only after all issue blocks are written**, use `AskUserQuestion` to collect accept/veto decisions. The question text is just the ID (e.g. `Accept #A?`) — it is NOT a substitute for the write-up above. Never jump straight to `AskUserQuestion` without the text write-up; the user can't evaluate `#A` if they've never seen what `#A` is.
+**Step 2 — only after all issue blocks are written**, ask the user normally for
+accept/veto decisions. Refer to the short IDs, but do not use an ID-only
+question as a substitute for the write-up above. Do not implement accepted
+fixes until the user explicitly authorizes the edits.
 
 ## Post-review commit flow
 
 Do NOT commit directly after the review. Follow these steps in order:
 
 1. List the files (and line ranges, if partial) that are staged for commit.
-2. Compose a [Conventional Commits](https://www.conventionalcommits.org/en/v1.0.0/) message and use `AskUserQuestion` to let the user edit it before committing.
+2. Compose a [Conventional Commits](https://www.conventionalcommits.org/en/v1.0.0/) message and ask the user to review or edit it before committing.
    - **Focus on the _why_, not the _what_** — the diff already shows what changed. One sentence on motivation or consequence beats a list of renamed files.
 3. Only commit after explicit user approval.
