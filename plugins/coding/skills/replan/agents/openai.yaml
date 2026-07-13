@@ -1,0 +1,4 @@
+interface:
+  display_name: "Replan"
+  short_description: "Critique and refine complex technical plans"
+  default_prompt: "Use $coding:replan to critique this design and develop the strongest plan."

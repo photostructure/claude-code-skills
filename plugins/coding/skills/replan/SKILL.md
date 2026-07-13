@@ -1,7 +1,6 @@
 ---
 name: replan
 description: Iterative deep planning with critiques and alternatives. Use when facing complex design decisions requiring thorough analysis.
-allowed-tools: Read, Glob, Grep, WebSearch
 ---
 
 # Replan
@@ -10,7 +9,11 @@ allowed-tools: Read, Glob, Grep, WebSearch
 
 You are going to **replan** — an iterative process of designing, critiquing, and refining a plan.
 
-Claude tends to *satisfice*: it commits to the first workable approach it finds. For design decisions with high switching costs (architecture, data models, API surfaces) you want the *best* approach, not the first one that clears the bar. This skill forces multiple passes of structured critique before any design is committed.
+Coding agents tend to commit to the first workable approach
+they find. For design decisions with high switching costs (architecture, data
+models, API surfaces), seek the best approach rather than the first one that
+clears the bar. This skill forces multiple structured critiques before settling
+the design.
 
 ## Process
 
@@ -79,10 +82,13 @@ For each iteration, present options with pros/cons:
 - Be honest about tradeoffs
 - Ask questions — don't guess
 
-This skill is for *thinking*, not *doing*: it deliberately has no `Write` or `Edit` access, so Claude can't start implementing before the plan is settled.
+This skill is for *thinking*, not *doing*. Treat the workflow as read-only: do
+not edit project files or begin implementation while replanning.
 
 ## Adapting for your project
 
-- **Add a "Required Reading First" section** pointing to your `CLAUDE.md`/`AGENTS.md`, architecture docs, or design principles — every listed file is read at the start of each invocation, so keep it short and high-value.
+- **Add a "Required Reading First" section** pointing to `AGENTS.md`, optional
+  `CLAUDE.md`, architecture docs, or design principles — every listed file is
+  read at the start of each invocation, so keep it short and high-value.
 - **Add domain-specific critique prompts** (e.g. "does this respect our backwards-compatibility guarantees?", "how does this affect cold-start latency?", "does this add dependencies, and are they justified?").
 - **Adjust the iteration count.** Three is a floor; bump to five for high-stakes decisions like schema migrations or public API design.
