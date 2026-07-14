@@ -1,5 +1,6 @@
 {
   "name": "cpp",
+  "version": "1.1.0",
   "description": "Two complementary modern-C++ (C++17) native-addon skills for Claude Code. resource-review traces object and resource lifetimes and reports only proven memory/resource defects (use-after-free, double-free, leaks, out-of-bounds, integer overflow, data races, Node-API handle/reference/threadsafe-function misuse), using a sanitizer stack trace as proof. project-setup assesses cross-platform node-gyp build configuration, per-OS/per-arch compiler hardening, sanitizer/static-analysis/CI wiring, and maintainable modern-C++ conventions (RAII, ownership, rule of five, exception safety across the C ABI) with evidence-backed Met/Gap/Not applicable/Needs verification states.",
   "author": {
     "name": "Matthew McEachen",

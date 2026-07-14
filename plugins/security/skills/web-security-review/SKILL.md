@@ -1,9 +1,17 @@
 ---
 name: web-security-review
-description: Security code review for JavaScript/TypeScript web applications. Use when asked to "security review", "find vulnerabilities", "check for security issues", "audit security", "OWASP review", "is this secure?", or to review Node/Express/React/Vue/Next/Nest/Angular code for database/storage security (SQL, MongoDB, Redis, LevelDB), XSS, authentication, authorization (IDOR/BOLA), SSRF, CSRF, deserialization, secrets, or crypto issues. Traces data flow, reasons like a security researcher, and reports only findings with concrete data-flow, exposure, or configuration proof — never confidence-scored guesses.
+description: Top-level security code review for JavaScript/TypeScript web applications. Use when the user asks to "security review", "find vulnerabilities", "check for security issues", "audit security", "OWASP review", "is this secure?", or to review Node/Express/React/Vue/Next/Nest/Angular code for database/storage security (SQL, MongoDB, Redis, LevelDB), XSS, authentication, authorization (IDOR/BOLA), SSRF, CSRF, deserialization, secrets, or crypto issues. Traces data flow and reports only findings with concrete data-flow, exposure, or configuration proof. Do not restart the full workflow for a delegated leaf validation task.
 ---
 
 # Web Security Review (JavaScript / TypeScript)
+
+## Leaf-mode guard
+
+If the task identifies your role as `leaf-reviewer` or sets
+`delegation-budget: 0`, read and follow
+[`references/validation-pass.md`](./references/validation-pass.md), validate only
+the supplied candidates, return the verdicts to the caller, and stop before the
+full workflow below.
 
 Identify **exploitable** security vulnerabilities in JavaScript/TypeScript web
 applications. Reason about the code the way a security researcher would — trace
@@ -161,10 +169,18 @@ reveals.
 
 ### 6. Adversarial self-verification
 
-For each surviving candidate, **try to refute it** before it makes the report. When
-subagents are available and the candidate set is non-trivial, launch an independent
-validation pass for each candidate in parallel, instructing each reviewer to disprove
-exploitability using
+For each surviving candidate, **try to refute it** before it makes the report.
+When independent reviewers are available and the candidate set is non-trivial,
+use at most **two** leaf validation tasks total. Partition or batch the candidates
+between them; never launch one task per candidate or a second validation round.
+
+Prefer the tool-restricted `security:reviewer` agent when the host exposes it;
+otherwise use a general task-local subagent. Start every prompt with
+`role: leaf-reviewer` and `delegation-budget: 0`, omit workflow skill names, and
+point it at the resolved path of
+`<plugin-root>/skills/web-security-review/references/validation-pass.md`. When
+context inheritance is configurable, do not pass the surrounding conversation.
+Ask each reviewer to disprove its assigned candidates using
 [`references/false-positives.md`](./references/false-positives.md):
 
 - Re-read the code with fresh eyes. Is it _actually_ reachable with attacker input?

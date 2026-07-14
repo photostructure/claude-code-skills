@@ -13,6 +13,11 @@ from urllib.parse import unquote, urlparse
 ROOT = Path(__file__).resolve().parents[1]
 EXPECTED_PLUGINS = {"coding", "security", "cpp"}
 EXPECTED_REPOSITORY = "https://github.com/photostructure/coding-skills"
+EXPECTED_REVIEWER_METHODS = {
+    "coding": "skills/review/references/single-pass.md",
+    "security": "skills/web-security-review/references/validation-pass.md",
+    "cpp": "skills/resource-review/references/validation-pass.md",
+}
 SEMVER_RE = re.compile(
     r"^(0|[1-9]\d*)\."
     r"(0|[1-9]\d*)\."
@@ -22,6 +27,7 @@ SEMVER_RE = re.compile(
     r"(?:\+[0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*)?$"
 )
 MARKDOWN_LINK_RE = re.compile(r"!?\[[^\]]*\]\(([^)\s]+)(?:\s+[^)]*)?\)")
+SEMVER_LITERAL_RE = re.compile(r"`\d+\.\d+\.\d+(?:[-+][0-9A-Za-z.-]+)?`")
 
 
 class Validation:
@@ -194,6 +200,62 @@ def validate_openai_yaml(
     )
 
 
+def validate_plugin_reviewer(
+    validation: Validation,
+    plugin_name: str,
+    plugin_root: Path,
+) -> None:
+    path = plugin_root / "agents" / "reviewer.md"
+    label = str(path.relative_to(ROOT))
+    if not path.is_file():
+        validation.errors.append(f"{label}: missing")
+        return
+
+    content = path.read_text(encoding="utf-8")
+    match = re.match(r"^---\n(.*?)\n---(?:\n|$)", content, re.DOTALL)
+    if match is None:
+        validation.errors.append(f"{label}: invalid frontmatter delimiters")
+        return
+
+    values: dict[str, str] = {}
+    for line in match.group(1).splitlines():
+        if not line.strip() or ":" not in line:
+            validation.errors.append(f"{label}: unsupported frontmatter line: {line!r}")
+            continue
+        key, value = line.split(":", 1)
+        values[key.strip()] = value.strip()
+
+    validation.check(
+        set(values) == {"name", "description", "tools", "disallowedTools"},
+        f"{label}: unexpected frontmatter keys",
+    )
+    validation.check(values.get("name") == "reviewer", f"{label}: name must be reviewer")
+    validation.check(bool(values.get("description")), f"{label}: description is empty")
+    validation.check(
+        values.get("tools") == "Read, Grep, Glob, Bash",
+        f"{label}: tools must be the read-oriented reviewer allowlist",
+    )
+    validation.check(
+        values.get("disallowedTools") == "Agent, Skill",
+        f"{label}: Agent and Skill must be explicitly denied",
+    )
+
+    method = EXPECTED_REVIEWER_METHODS.get(plugin_name)
+    if method is None:
+        validation.errors.append(f"{label}: no reviewer methodology configured for {plugin_name}")
+        return
+    validation.check(
+        (plugin_root / method).is_file(),
+        f"{label}: {method} does not exist",
+    )
+    validation.check(
+        f"${{CLAUDE_PLUGIN_ROOT}}/{method}" in content,
+        f"{label}: must load {method}",
+    )
+    validation.check("You are a leaf reviewer." in content, f"{label}: missing leaf role")
+    validation.check("Never delegate" in content, f"{label}: missing delegation guard")
+
+
 def validate_plugins_and_skills(validation: Validation, plugin_roots: dict[str, Path]) -> None:
     for marketplace_name, plugin_root in sorted(plugin_roots.items()):
         manifest_path = plugin_root / ".codex-plugin" / "plugin.json"
@@ -210,7 +272,13 @@ def validate_plugins_and_skills(validation: Validation, plugin_roots: dict[str, 
             isinstance(version, str) and SEMVER_RE.fullmatch(version) is not None,
             f"{marketplace_name}: native version must be strict SemVer",
         )
+        claude_manifest = validation.load_json(plugin_root / ".claude-plugin" / "plugin.json")
+        validation.check(
+            claude_manifest.get("version") == version,
+            f"{marketplace_name}: Claude and native manifest versions must match",
+        )
         validation.check(manifest.get("skills") == "./skills/", f"{marketplace_name}: skills must be ./skills/")
+        validate_plugin_reviewer(validation, marketplace_name, plugin_root)
 
         skills_dir = plugin_root / "skills"
         validation.check(skills_dir.is_dir(), f"{marketplace_name}: missing skills directory")
@@ -234,6 +302,25 @@ def validate_plugins_and_skills(validation: Validation, plugin_roots: dict[str, 
             )
 
     validation.check(validation.skill_count == 13, f"expected 13 skills, found {validation.skill_count}")
+
+
+def validate_install_documentation(validation: Validation) -> None:
+    readme = (ROOT / "README.md").read_text(encoding="utf-8")
+    try:
+        codex_install = readme.split("## Install in Codex", 1)[1].split(
+            "## Install in Claude Code", 1
+        )[0]
+    except IndexError:
+        validation.errors.append("README.md: missing Codex or Claude Code install section")
+        return
+    validation.check(
+        SEMVER_LITERAL_RE.search(codex_install) is None,
+        "README.md: Codex install instructions must derive versions from manifests",
+    )
+    validation.check(
+        "`.codex-plugin/plugin.json`" in codex_install,
+        "README.md: Codex install instructions must name manifests as version ground truth",
+    )
 
 
 def validate_relative_links(validation: Validation) -> None:
@@ -261,6 +348,11 @@ def validate_portability_tokens(validation: Validation) -> None:
         path
         for path in (ROOT / "plugins").rglob("*.md")
         if path.name not in {"ATTRIBUTION.md", "LICENSE"}
+        and not (
+            len(path.relative_to(ROOT).parts) == 4
+            and path.relative_to(ROOT).parts[0] == "plugins"
+            and path.relative_to(ROOT).parts[2] == "agents"
+        )
     ]
     forbidden = {
         "AskUserQuestion": re.compile(r"\bAskUserQuestion\b"),
@@ -317,6 +409,7 @@ def main() -> int:
     validation = Validation()
     roots = validate_marketplaces(validation)
     validate_plugins_and_skills(validation, roots)
+    validate_install_documentation(validation)
     validate_relative_links(validation)
     validate_portability_tokens(validation)
 

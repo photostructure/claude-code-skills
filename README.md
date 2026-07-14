@@ -79,9 +79,10 @@ codex plugin add cpp@photostructure
 codex plugin list
 ```
 
-Confirm the installed cache contains version `1.0.0`, then start a fresh Codex
-task under the same disposable `CODEX_HOME` and verify the `$` skill picker sees
-all 13 skills. Remove only that disposable directory when finished.
+Confirm the versions reported by `codex plugin list` match each plugin's
+`.codex-plugin/plugin.json`, then start a fresh Codex task under the same
+disposable `CODEX_HOME` and verify the `$` skill picker sees all 13 skills.
+Remove only that disposable directory when finished.
 
 ## Install in Claude Code
 
@@ -133,6 +134,7 @@ coding-skills/
 │   ├── coding/
 │   │   ├── .codex-plugin/plugin.json
 │   │   ├── .claude-plugin/plugin.json
+│   │   ├── agents/reviewer.md       # Claude-enforced leaf reviewer
 │   │   └── skills/
 │   │       ├── <skill>/
 │   │       │   ├── SKILL.md       # shared instructions
@@ -143,6 +145,7 @@ coding-skills/
 │   ├── security/
 │   │   ├── .codex-plugin/plugin.json
 │   │   ├── .claude-plugin/plugin.json
+│   │   ├── agents/reviewer.md
 │   │   └── skills/
 │   │       └── <skill>/
 │   │           ├── SKILL.md
@@ -153,6 +156,7 @@ coding-skills/
 │   └── cpp/
 │       ├── .codex-plugin/plugin.json
 │       ├── .claude-plugin/plugin.json
+│       ├── agents/reviewer.md
 │       └── skills/
 │           └── <skill>/
 │               ├── SKILL.md
@@ -176,6 +180,12 @@ Before publishing, also run the current Codex `$skill-creator` validator for
 every skill, the `$plugin-creator` validator for every plugin, parse both
 marketplace JSON files, check relative Markdown links, and run
 `git diff --check`. Test both marketplace installations in fresh tasks.
+
+Review orchestration is bounded on both hosts. Claude Code uses each plugin's
+tool-restricted `reviewer` agent, which has neither the `Agent` nor `Skill` tool.
+Codex and other hosts use the same non-triggerable leaf methodology through a
+`delegation-budget: 0` prompt contract and task-local context. Review skills keep
+a leaf-mode guard so an implicit skill match cannot restart orchestration.
 
 ## Adapting the workflows
 

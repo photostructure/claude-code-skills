@@ -67,12 +67,12 @@ wasted.
 
 Run the double-review gate on the TPP's diff — read and follow
 [../double-review/SKILL.md](../double-review/SKILL.md): use two independent,
-mutually blind reviewers through the host's available collaboration mechanisms over
-the identical scope, while you read the new code yourself as the third
-reviewer — the only one who knows the whole roadmap. Scope both reviewer
-prompts with this TPP's spec/reference files, the diff range, and a scrutiny
-list of the riskiest areas the plan touches. Use an external reviewer only when
-the revised gate requires its fallback.
+mutually blind leaf reviewers over the identical scope, while you read the new
+code yourself as the third reviewer — the only one who knows the whole roadmap.
+The gate owns reviewer creation: do not add reviewers here or hand them another
+workflow skill. Scope both leaf prompts with this TPP's spec/reference files,
+the diff range, and a scrutiny list of the riskiest areas the plan touches. Use
+an external reviewer only when the gate requires its fallback.
 
 ### 5. Vet every finding — accept and veto only with proof
 

@@ -1,6 +1,6 @@
 ---
 name: review-staged
-description: Review the git staged diff for verified bugs before committing, then drive a clean Conventional Commit.
+description: Top-level, user-facing workflow to review the staged Git diff for verified bugs and then prepare a clean Conventional Commit. Use when the user directly asks to review staged changes or prepare their commit. Do not use for a delegated leaf review or finding-validation task.
 ---
 
 # Review Git Staged Changes
@@ -9,6 +9,14 @@ description: Review the git staged diff for verified bugs before committing, the
 
 Review the **staged** diff (`git diff --cached`) for potential issues and improvements.
 
+## Leaf-mode guard
+
+If the task identifies your role as `leaf-reviewer` or sets
+`delegation-budget: 0`, read and follow
+[`../review/references/single-pass.md`](../review/references/single-pass.md),
+complete one review yourself, return the report to the caller, and stop before
+the commit flow below.
+
 Review critically — don't assume correctness. Question every design choice and flag anything that would fail a production code review. Assume any prior git state and file contents you gathered is stale, especially if the user re-runs this skill or asks you to re-read.
 
 ## Before you start
@@ -16,27 +24,29 @@ Review critically — don't assume correctness. Question every design choice and
 Study the project's coding standards and design principles — start with
 `AGENTS.md`, then honor `CLAUDE.md` and relevant design docs when present.
 
-**Only report verified bugs — things that are actually wrong.** Do NOT report:
+Apply the scope, verification, and exclusion rules in
+[`../review/references/single-pass.md`](../review/references/single-pass.md)
+while performing the primary staged-diff review yourself. Use the top-level
+response and commit-flow rules below instead of the reference's leaf return
+behavior.
 
-- Style, organization, or naming preferences
-- Speculative future risks ("if someone later removes this guard...")
-- Feature requests or suggestions disguised as issues
-- Things you haven't proven with concrete evidence from the codebase
+### Bounded delegation
 
-For EVERY potential issue, you MUST complete these steps before reporting:
+Use at most **two** additional leaf-review tasks for the entire review: one
+exploration pass for a large or complex staged diff and one batched validation
+pass for all surviving candidates. Do not launch one task per file or finding,
+and do not launch a second iteration round.
 
-1. **Read the actual code** (not just the diff) — follow the full call chain
-2. **Search for all callers/usages** to understand context
-3. **Read any design docs or plans** that explain the rationale
-4. **Construct a concrete failing scenario** — if you can't describe exactly how the bug manifests, it's not an issue
-5. **Discard it** if your research shows it's intentional or already handled
+If the current host exposes the tool-restricted `coding:reviewer` agent, use it.
+Otherwise use a general task-local subagent. Start each leaf prompt with
+`role: leaf-reviewer` and `delegation-budget: 0`, point it at the resolved path
+of `<plugin-root>/skills/review/references/single-pass.md`, omit workflow skill
+names, and require one final report. When context inheritance is configurable,
+do not pass the surrounding conversation. When no leaf mechanism is available,
+perform the same work yourself.
 
-**When subagents are available, use them where they materially improve the review:**
-
-- **Exploration**: When more than three files are staged, or the code is complex, launch Explore subagents (one per file/area) to gather findings
-- **Validation**: Before reporting ANY issue, launch a subagent to verify it — have it trace the full call chain, search for guards/handlers you might have missed, and read the relevant design docs. If the subagent can't confirm the issue, discard it
-- **Iteration**: After your initial analysis, launch a second round of subagents to dig deeper into the most promising findings — check edge cases, race conditions, and interaction effects between the changed files
-- **Refinement**: Are all the staged diffs a single coherent "story" or "theme"? If not, recommend how they should be split into separate commits before committing.
+Also decide whether the staged diff tells one coherent story. If not, recommend
+how to split it before committing.
 
 If you find zero real issues after thorough research, say "No issues found" — do not pad the list.
 

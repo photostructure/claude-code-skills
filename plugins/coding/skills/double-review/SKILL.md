@@ -1,6 +1,6 @@
 ---
 name: double-review
-description: Validation gate for freshly written code — run two independent, mutually blind reviews over the same scoped diff, then empirically vet every finding against ground truth before accepting or vetoing it. Use after landing a work item, especially subagent-written code, and before committing.
+description: Top-level validation gate for freshly written code — run two independent, mutually blind reviews over the same scoped diff, then empirically vet every finding against ground truth before accepting or vetoing it. Use when the user or a top-level implementation workflow requests the full gate after landing a work item and before committing. Do not use for a delegated review, exploration, or finding-validation pass.
 ---
 
 # Double Review
@@ -25,6 +25,13 @@ Two failure modes motivate the gate:
 So: review twice, independently — then trust neither until ground truth has
 spoken.
 
+## Leaf-mode guard
+
+If the task identifies your role as `leaf-reviewer` or sets
+`delegation-budget: 0`, do not run this gate. Read and follow
+[`../review/references/single-pass.md`](../review/references/single-pass.md),
+complete one review yourself, return the report to the caller, and stop.
+
 ## 1. Scope the gate
 
 Before launching anything, write down:
@@ -42,12 +49,29 @@ Before launching anything, write down:
 
 ## 2. Launch two independent reviewers
 
-Use the current host's available collaboration or subagent mechanism to launch two review
-tasks concurrently. Give both reviewers the identical scope, ground-truth
-description, scrutiny list, and the methodology in
-[`../review/SKILL.md`](../review/SKILL.md): proof before reporting, a concrete
-failing scenario per finding, and "No issues found" instead of padding. Require
-`file:line` evidence for every finding.
+Launch exactly two review tasks concurrently. They are leaf tasks: neither may
+delegate or invoke another workflow. If the current host exposes the
+tool-restricted `coding:reviewer` agent, use it. Otherwise use the host's general
+collaboration mechanism with task-local context; when context inheritance is
+configurable, do not pass the surrounding conversation.
+
+Before sending either prompt, replace `<plugin-root>` below with the resolved
+absolute path to this plugin's root. Start both prompts with this host-neutral
+contract (do not add the name of this gate to a leaf prompt):
+
+```text
+role: leaf-reviewer
+delegation-budget: 0
+
+Perform exactly one read-only review and return one final report. Do not invoke
+workflow skills, delegate, edit files, or ask the user questions.
+Read <plugin-root>/skills/review/references/single-pass.md and follow it.
+```
+
+Give both reviewers the identical diff scope, ground-truth description,
+scrutiny list, and requirement for `file:line` evidence. The reference requires
+proof before reporting, a concrete failing scenario per finding, and
+`No issues found` instead of padding.
 
 Keep the reviewers mutually blind:
 
@@ -59,9 +83,11 @@ Keep the reviewers mutually blind:
 If the current surface cannot provide two independent internal reviewers,
 use a separate external coding reviewer for the missing pass only. Run it with
 read-only repository access, use the host's managed process and temporary-file
-APIs rather than shell-specific backgrounding or redirection, and capture only
-its final review report. If neither a second subagent nor an external reviewer
-is available, stop and report that the two-reviewer gate is incomplete.
+APIs rather than shell-specific backgrounding or redirection, give it the same
+leaf contract and reference, and capture only its final review report. Use an
+isolated configuration that cannot load this plugin's workflow skills when the
+external tool supports one. If neither a second subagent nor an external
+reviewer is available, stop and report that the two-reviewer gate is incomplete.
 
 Don't idle while they grind: **read the new code yourself**. You are yet
 another reviewer, and the only one who knows the full context of what the
@@ -109,7 +135,8 @@ rediscover the same "bug" and must not re-litigate it.
   `uv run python -c ...`", "the RFC's test vectors". The vetting step is
   only as strong as this.
 - **Swap reviewers freely.** The invariant is two independent, mutually blind
-  reviews. Prefer the host's subagents; use an external reviewer only as a fallback.
+  leaf reviews. Prefer the `coding:reviewer` agent when the host
+  exposes it; use an external reviewer only as a fallback.
 - **Tune the scrutiny list** to your codebase's recurring failure modes and
   bake the worst offenders into this file.
 - **Callers welcome**: other skills (e.g. `tpp-orchestrate`) reference this

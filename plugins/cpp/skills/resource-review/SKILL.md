@@ -1,9 +1,17 @@
 ---
 name: resource-review
-description: Memory- and resource-safety code review for modern C/C++ (C++17), including Node.js native addons (node-addon-api / Node-API). Use when asked to "review C++/C for memory safety", "find a memory leak", "why does this segfault", "check for use-after-free / double-free / buffer overflow / data race", "resource/handle/fd leak", "review this native addon", "N-API / node-addon-api review", or to check native code with AddressSanitizer/UBSan/TSan/Valgrind. Traces object and resource lifetimes and reports only defects backed by a sanitizer trace, a reproducer, or a fully traced lifetime — never pattern-match guesses.
+description: Top-level memory- and resource-safety code review for modern C/C++ (C++17), including Node.js native addons (node-addon-api / Node-API). Use when the user asks to "review C++/C for memory safety", "find a memory leak", "why does this segfault", "check for use-after-free / double-free / buffer overflow / data race", "resource/handle/fd leak", "review this native addon", "N-API / node-addon-api review", or to check native code with AddressSanitizer/UBSan/TSan/Valgrind. Reports only defects backed by a sanitizer trace, reproducer, or fully traced lifetime. Do not restart the full workflow for a delegated leaf validation task.
 ---
 
 # C/C++ Resource & Memory Review
+
+## Leaf-mode guard
+
+If the task identifies your role as `leaf-reviewer` or sets
+`delegation-budget: 0`, read and follow
+[`references/validation-pass.md`](./references/validation-pass.md), validate only
+the supplied candidates, return the verdicts to the caller, and stop before the
+full workflow below.
 
 Identify **provable** memory- and resource-safety defects in modern C/C++ (C++17),
 including Node.js native addons built with node-gyp and node-addon-api. Reason about
@@ -146,9 +154,19 @@ complete traced-lifetime proof with `file:line` for every step, or downgrade it 
 
 ### 6. Adversarial self-verification
 
-For each surviving candidate, **try to refute it** before it makes the report. For a
-non-trivial finding set, launch one validation subagent per candidate **in parallel**, each
-instructed to disprove the defect using `references/proof-and-tooling.md`:
+For each surviving candidate, **try to refute it** before it makes the report.
+For a non-trivial finding set, use at most **two** leaf validation tasks total.
+Partition or batch the candidates between them; never launch one task per
+candidate or a second validation round.
+
+Prefer the tool-restricted `cpp:reviewer` agent when the host exposes it;
+otherwise use a general task-local subagent. Start every prompt with
+`role: leaf-reviewer` and `delegation-budget: 0`, omit workflow skill names, and
+point it at the resolved path of
+`<plugin-root>/skills/resource-review/references/validation-pass.md`. When
+context inheritance is configurable, do not pass the surrounding conversation.
+Ask each reviewer to disprove its assigned candidates using
+`references/proof-and-tooling.md`:
 
 - Re-read the lifetime with fresh eyes. Is release *actually* missing, or is there an
   RAII guard, `unique_ptr`, tracking set, or cleanup hook that handles it?

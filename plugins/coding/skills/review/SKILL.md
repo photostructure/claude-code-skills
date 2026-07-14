@@ -1,6 +1,6 @@
 ---
 name: review
-description: Review code for potential issues and improvements. Use when asked to review specific files, functions, or code sections.
+description: Top-level, user-facing code-review workflow for verified issues in specific files, functions, diffs, or code sections. Use when the user directly requests a review and may need to adjudicate its findings. Do not use as an orchestrator for a delegated leaf review or finding-validation task.
 ---
 
 # Code Review
@@ -9,6 +9,14 @@ description: Review code for potential issues and improvements. Use when asked t
 
 Review the mentioned code for potential issues and improvements.
 
+## Leaf-mode guard
+
+If the task identifies your role as `leaf-reviewer` or sets
+`delegation-budget: 0`, read and follow
+[`references/single-pass.md`](./references/single-pass.md), complete one review
+yourself, return the report to the caller, and stop before the orchestration and
+user-interaction steps below.
+
 Review critically — don't assume correctness. Question every design choice and flag anything that would fail a production code review. Assume any prior git state or file contents you gathered is stale, especially if the user re-runs this skill or asks you to re-read.
 
 ## Before you start
@@ -16,39 +24,31 @@ Review critically — don't assume correctness. Question every design choice and
 Study the project's coding standards and design principles — start with
 `AGENTS.md`, then honor `CLAUDE.md` and relevant design docs when present.
 
-**Only report verified bugs — things that are actually wrong.** Do NOT report:
+Apply the scope, verification, and exclusion rules in
+[`references/single-pass.md`](./references/single-pass.md) while performing the
+primary review yourself. Use the top-level response and user-interaction rules
+below instead of the reference's leaf return behavior.
 
-- Style, organization, or naming preferences
-- Speculative future risks ("if someone later removes this guard...")
-- Feature requests or suggestions disguised as issues
-- Things you haven't proven with concrete evidence from the codebase
-- Anything a linter, typechecker, or compiler will catch — CI handles those
-- Issues the code explicitly silences (`// eslint-disable`, `# noqa`) — the author already made that call
-- Real issues on lines the change does not touch — out of scope
+### Bounded delegation
 
-For EVERY potential issue, you MUST complete these steps before reporting:
+Use at most **two** additional leaf-review tasks for the entire review. Do not
+launch one task per file or per finding, and do not launch a second iteration
+round.
 
-1. **Read the actual code** (not just the diff) — follow the full call chain
-2. **Search for all callers/usages** to understand context
-3. **Read any design docs or plans** that explain the rationale
-4. **Construct a concrete failing scenario** — if you can't describe exactly how the bug manifests, it's not an issue
-5. **Discard it** if your research shows it's intentional or already handled
+- For a large or complex change, use one leaf to cover a coherent file group or
+  a distinct perspective such as repository-guidance compliance or historical
+  context.
+- If candidates survive your own pass, use one leaf to validate all candidates
+  together, explicitly asking it to disprove them by tracing missed guards,
+  callers, and design constraints.
 
-**When subagents are available, use them along two axes: perspective and mode.**
-
-Perspectives (run in parallel, one subagent each):
-
-- **Repository-guidance compliance** — audit the change against `AGENTS.md`,
-  optional `CLAUDE.md`, and the project's written design principles
-- **Shallow bug scan** — read just the diff and flag obvious logic errors, off-by-ones, missing awaits, etc.
-- **Historical context** — `git blame` and `git log` on the changed lines. Understand *why* the code is the way it is before suggesting it should be different. Check prior PR comments on the same files; past review consensus often still applies
-- **In-code constraints** — read comments adjacent to the change. They often spell out invariants the diff alone doesn't reveal
-
-Modes:
-
-- **Exploration**: When more than three files need review, or the code is complex, launch Explore subagents (one per file/area) to gather findings
-- **Validation**: Before reporting ANY issue, launch a subagent to verify it — have it trace the full call chain, search for guards/handlers you might have missed, and read the relevant design docs. If the subagent can't confirm the bug, discard the issue
-- **Iteration**: After your initial analysis, launch a second round of subagents to dig deeper into the most promising findings — check edge cases, race conditions, and interaction effects between the changed files
+If the current host exposes the tool-restricted `coding:reviewer` agent, use it.
+Otherwise use a general task-local subagent. Start every leaf prompt with
+`role: leaf-reviewer` and `delegation-budget: 0`, point it at the resolved path
+of `<plugin-root>/skills/review/references/single-pass.md`, and do not include
+workflow skill names in the prompt. When context inheritance is configurable,
+do not pass the surrounding conversation. When no leaf mechanism is available,
+perform the same exploration and validation yourself.
 
 If you find zero real issues after thorough research, say "No issues found." Do not pad the list.
 
