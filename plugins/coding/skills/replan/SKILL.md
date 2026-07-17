@@ -85,6 +85,15 @@ For each iteration, present options with pros/cons:
 This skill is for *thinking*, not *doing*. Treat the workflow as read-only: do
 not edit project files or begin implementation while replanning.
 
+Read-only commands are allowed, and encouraged, to settle an assumption the
+plan rests on: `git log` for how a module got this way, `npm ls` for what is
+actually installed, a small probe for whether an API behaves as assumed. An
+unverified assumption is a risk you are handing to the implementer.
+
+The line is intent, not tooling: run commands to *test the plan*, never to
+*start building it*. "Let me just write a quick script to try this" is how
+replanning turns into implementing.
+
 ## Adapting for your project
 
 - **Add a "Required Reading First" section** pointing to `AGENTS.md`, optional
