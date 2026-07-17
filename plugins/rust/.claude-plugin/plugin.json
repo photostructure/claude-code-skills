@@ -1,0 +1,25 @@
+{
+  "name": "rust",
+  "version": "1.0.0",
+  "description": "A practical Rust project-setup skill for Claude Code. It creates, assesses, or improves stable Rust projects using profile-aware Cargo workspace and feature design, explicit edition/MSRV/toolchain policy, strict but usable rustc/Clippy/rustfmt configuration, layered testing and CI, idiomatic ownership and API design, narrow documented unsafe/FFI boundaries, and non-mutating crates.io package and publish dry runs. Assessment mode reports evidence-backed Met/Gap/Not applicable/Needs verification states rather than claiming unsoundness.",
+  "author": {
+    "name": "Matthew McEachen",
+    "url": "https://photostructure.com/coding/"
+  },
+  "homepage": "https://photostructure.com/coding/",
+  "license": "MIT",
+  "keywords": [
+    "claude-code",
+    "skills",
+    "rust",
+    "cargo",
+    "clippy",
+    "rustfmt",
+    "crates-io",
+    "msrv",
+    "unsafe-rust",
+    "project-setup",
+    "publishing",
+    "maintainability"
+  ]
+}

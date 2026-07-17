@@ -1,0 +1,40 @@
+{
+  "name": "rust",
+  "version": "1.0.0",
+  "description": "Idiomatic safe Rust project setup, strict linting, maintainability, CI, packaging, and publishing guidance.",
+  "author": {
+    "name": "Matthew McEachen",
+    "url": "https://photostructure.com/coding/"
+  },
+  "homepage": "https://photostructure.com/coding/",
+  "repository": "https://github.com/photostructure/coding-skills",
+  "license": "MIT",
+  "keywords": [
+    "skills",
+    "rust",
+    "cargo",
+    "clippy",
+    "rustfmt",
+    "crates-io",
+    "msrv",
+    "unsafe-rust",
+    "project-setup",
+    "publishing"
+  ],
+  "skills": "./skills/",
+  "interface": {
+    "displayName": "Rust",
+    "shortDescription": "Build, lint, maintain, and publish Rust",
+    "longDescription": "An applicability-aware workflow for idiomatic safe Rust project setup, workspace policy, strict usable linting, testing, CI, unsafe boundaries, maintainability, packaging, and release preparation.",
+    "developerName": "PhotoStructure",
+    "category": "Developer Tools",
+    "capabilities": [
+      "Read",
+      "Write"
+    ],
+    "defaultPrompt": [
+      "Set up this Rust project with strict, maintainable defaults.",
+      "Assess this Rust workspace for idiomatic code and release readiness."
+    ]
+  }
+}

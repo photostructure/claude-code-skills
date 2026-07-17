@@ -11,7 +11,7 @@ from urllib.parse import unquote, urlparse
 
 
 ROOT = Path(__file__).resolve().parents[1]
-EXPECTED_PLUGINS = {"coding", "security", "cpp"}
+EXPECTED_PLUGINS = {"coding", "security", "cpp", "rust"}
 EXPECTED_REPOSITORY = "https://github.com/photostructure/coding-skills"
 EXPECTED_REVIEWER_METHODS = {
     "coding": "skills/review/references/single-pass.md",
@@ -278,7 +278,13 @@ def validate_plugins_and_skills(validation: Validation, plugin_roots: dict[str, 
             f"{marketplace_name}: Claude and native manifest versions must match",
         )
         validation.check(manifest.get("skills") == "./skills/", f"{marketplace_name}: skills must be ./skills/")
-        validate_plugin_reviewer(validation, marketplace_name, plugin_root)
+        if marketplace_name in EXPECTED_REVIEWER_METHODS:
+            validate_plugin_reviewer(validation, marketplace_name, plugin_root)
+        else:
+            validation.check(
+                not (plugin_root / "agents" / "reviewer.md").exists(),
+                f"{marketplace_name}: setup-only plugin must not invent a reviewer agent",
+            )
 
         skills_dir = plugin_root / "skills"
         validation.check(skills_dir.is_dir(), f"{marketplace_name}: missing skills directory")
@@ -301,7 +307,7 @@ def validate_plugins_and_skills(validation: Validation, plugin_roots: dict[str, 
                 f"{marketplace_name}:{skill_name}",
             )
 
-    validation.check(validation.skill_count == 13, f"expected 13 skills, found {validation.skill_count}")
+    validation.check(validation.skill_count == 14, f"expected 14 skills, found {validation.skill_count}")
 
 
 def validate_install_documentation(validation: Validation) -> None:
@@ -356,14 +362,14 @@ def validate_portability_tokens(validation: Validation) -> None:
     ]
     forbidden = {
         "AskUserQuestion": re.compile(r"\bAskUserQuestion\b"),
-        "Claude slash skill": re.compile(r"(?<![\w.-])/(?:coding|security|cpp):[a-z]"),
+        "Claude slash skill": re.compile(r"(?<![\w.-])/(?:coding|security|cpp|rust):[a-z]"),
         "Claude /tpp command": re.compile(r"`/tpp(?:\s|`)"),
         "Claude wrapper": re.compile(r"\bclaude\.sh\b"),
         "Claude model class": re.compile(r"\b(?:opus|sonnet)(?:-class)?\b", re.IGNORECASE),
         "Claude frontmatter": re.compile(r"^(?:allowed-tools|disable-model-invocation|argument-hint|license):", re.MULTILINE),
         "literal Claude tool": re.compile(r"`(?:Task|Agent|Bash|Edit|Write|AskUserQuestion)`"),
         "Codex-only bundled skill invocation": re.compile(
-            r"\$(?:coding|security|cpp):[a-z][a-z-]*"
+            r"\$(?:coding|security|cpp|rust):[a-z][a-z-]*"
         ),
         "Codex-only runtime wording": re.compile(r"\bCodex\b"),
         "unqualified bundled skill": re.compile(

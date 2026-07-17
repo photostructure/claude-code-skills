@@ -5,7 +5,7 @@
     "url": "https://photostructure.com/coding/"
   },
   "metadata": {
-    "description": "Opinionated Claude Code skills for disciplined planning, proof-based review, clean Conventional Commits, vulnerability review, and web and Electron security hardening."
+    "description": "Opinionated Claude Code skills for disciplined planning, proof-based review, clean Conventional Commits, web and Electron security, modern C++, and maintainable Rust projects."
   },
   "plugins": [
     {
@@ -28,6 +28,13 @@
       "description": "Two complementary modern-C++ (C++17) native-addon skills: resource-review traces object and resource lifetimes and reports only proven memory/resource defects (use-after-free, double-free, leaks, out-of-bounds, integer overflow, data races, Node-API handle/reference/threadsafe-function misuse); project-setup performs an applicability-aware Met/Gap assessment of cross-platform node-gyp build config, per-OS/per-arch compiler hardening, sanitizer/static-analysis/CI wiring, and maintainable modern-C++ conventions.",
       "category": "development",
       "keywords": ["claude-code", "cpp", "modern-cpp", "memory-safety", "raii", "node-api", "node-addon-api", "node-gyp", "native-addon", "sanitizers", "addresssanitizer", "clang-tidy", "compiler-hardening", "cross-platform"]
+    },
+    {
+      "name": "rust",
+      "source": "./plugins/rust",
+      "description": "An applicability-aware Rust project-setup skill covering Cargo workspaces and features, edition/MSRV/toolchain policy, strict usable rustc/Clippy/rustfmt configuration, layered testing and CI, idiomatic safe API design, governed unsafe/FFI boundaries, packaging, and crates.io release preparation.",
+      "category": "development",
+      "keywords": ["claude-code", "rust", "cargo", "clippy", "rustfmt", "crates-io", "msrv", "unsafe-rust", "project-setup", "publishing", "maintainability"]
     }
   ]
 }

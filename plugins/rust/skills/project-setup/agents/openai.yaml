@@ -1,0 +1,4 @@
+interface:
+  display_name: "Rust Project Setup"
+  short_description: "Build, lint, maintain, and publish Rust projects"
+  default_prompt: "Use $rust:project-setup to set up or assess this Rust project for maintainability and release readiness."
