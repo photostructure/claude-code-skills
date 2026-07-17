@@ -1,7 +1,7 @@
 {
   "name": "security",
-  "version": "1.1.0",
-  "description": "Complementary JavaScript/TypeScript web security skills for Claude Code. web-security-review traces data flow and reports only proven vulnerabilities. web-security-hardening assesses applicable OWASP ASVS 5.0.0 controls and secure defaults for headers/CSP, input and files, identity/sessions/secrets, frameworks, storage, and deployment using evidence-backed Met/Gap/Not applicable/Needs verification states.",
+  "version": "1.2.0",
+  "description": "Complementary JavaScript/TypeScript web and Electron security skills for Claude Code. web-security-review traces data flow and reports only proven vulnerabilities. web-security-hardening assesses applicable OWASP ASVS 5.0.0 and Electron Security Checklist controls using evidence-backed Met/Gap/Not applicable/Needs verification states.",
   "author": {
     "name": "Matthew McEachen",
     "url": "https://photostructure.com/coding/"
@@ -23,6 +23,8 @@
     "csp",
     "self-hosted",
     "oidc",
-    "docker"
+    "docker",
+    "electron",
+    "desktop-security"
   ]
 }

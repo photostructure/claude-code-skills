@@ -1,21 +1,25 @@
 ---
 name: web-security-hardening
-description: Security best-practices and hardening review for JavaScript/TypeScript web applications. Use when asked to harden an app, review security posture or secure defaults, assess OWASP ASVS alignment, improve HTTP headers or CSP, review forms/input validation/sanitization/uploads, strengthen authentication/passwords/sessions/secrets, or evaluate deployment/operations controls. Produces an applicability-aware baseline gap analysis (Met / Gap / Not applicable / Needs verification), not exploit severity findings.
+description: Security best-practices and hardening review for JavaScript/TypeScript web and Electron desktop applications. Use when asked to harden an app, review security posture or secure defaults, assess OWASP ASVS or Electron security-checklist alignment, improve HTTP headers or CSP, review forms/input validation/sanitization/uploads, strengthen authentication/passwords/sessions/secrets, secure Electron windows/preloads/IPC/navigation/permissions/protocols/updates/packaging, or evaluate deployment/operations controls. Produces an applicability-aware baseline gap analysis (Met / Gap / Not applicable / Needs verification), not exploit severity findings.
 ---
 
-# Web Security Hardening
+# Web and Electron Security Hardening
 
-Assess JavaScript/TypeScript web applications against a practical, evidence-based
-security baseline. Report applicable preventive-control gaps even when no exploit path
-is currently proven, while clearly distinguishing hardening advice from vulnerabilities.
+Assess JavaScript/TypeScript web and Electron desktop applications against practical,
+evidence-based security baselines. Report applicable preventive-control gaps even when
+no exploit path is currently proven, while clearly distinguishing hardening advice from
+vulnerabilities.
 
 Use OWASP ASVS 5.0.0 as the pinned requirements backbone. Use OWASP Cheat Sheets,
 current framework/library documentation, MDN, and NIST SP 800-63B-4 to explain and
-implement controls. See [ATTRIBUTION.md](./ATTRIBUTION.md).
+implement web/service controls. When Electron is present, also use Electron's current
+security checklist and official runtime, packaging, and platform documentation for the
+desktop boundary. See [ATTRIBUTION.md](./ATTRIBUTION.md).
 
-Call the result an **ASVS-guided hardening review**, not ASVS compliance or
-certification, unless every requirement at the selected level has been enumerated,
-assessed for applicability, and supported by the evidence ASVS requires.
+For web-only work, call the result an **ASVS-guided hardening review**, not ASVS
+compliance or certification, unless every requirement at the selected level has been
+enumerated, assessed for applicability, and supported by the evidence ASVS requires.
+Electron reviews use the dual-baseline name defined below.
 
 ## Boundary with vulnerability review
 
@@ -106,6 +110,10 @@ Establish from code/config rather than assumptions:
 - sensitive data, uploads, payments, secrets, regulated/high-impact operations;
 - reverse proxy, CDN, containers, database/cache/embedded storage, CI/CD;
 - frameworks and installed versions from manifests/lockfiles.
+- for Electron: the exact runtime version, target operating systems and package formats;
+  all main/preload/renderer/worker/utility-process entry points, windows/views/webviews,
+  content origins, IPC capabilities, sessions/partitions, deep links, custom protocols,
+  signing/updater configuration, ASAR protections, and fuses.
 
 State unresolved threat-model assumptions in the report.
 
@@ -125,6 +133,13 @@ verifying the exact ID against the official 5.0.0 source; never infer or invent 
 Selecting Level 2 also selects its MFA requirements; do not silently downgrade them
 because MFA is uncommon in the reviewed product.
 
+When Electron is present, also select the current official Electron Security Checklist
+and platform guidance as the desktop-runtime baseline. Resolve the exact installed
+Electron version and verify version-sensitive defaults and advisories against live
+official sources when internet access is available. Report this as a dual **ASVS- and
+Electron-guided hardening review**; do not imply that ASVS certifies the desktop runtime,
+installer, updater, OS entitlements, or signing pipeline.
+
 ### 4. Select applicable domains
 
 | Detected surface | Load |
@@ -134,6 +149,7 @@ because MFA is uncommon in the reviewed product.
 | Routes, request data, rendering, uploads, URLs/paths | `input-output-and-files.md` |
 | Login, accounts, sessions, tokens, recovery, secrets | `identity-sessions-and-secrets.md` |
 | Proxy/TLS, Docker/IaC, CI/CD, DB/cache/files, logs/backups | `deployment-and-operations.md` |
+| Electron dependency, main/preload entry, window/view/webview, IPC, desktop packaging | `electron-controls.md` plus the relevant web/service references above |
 
 Each domain reference file lists the **technique cards** filed under it. When you assess a
 specific control, also load its card from
@@ -151,6 +167,10 @@ For each applicable control:
 - identify compensating controls and intentional exceptions;
 - record `file:line` evidence for Met and Gap states;
 - use Needs verification only for a concrete missing fact, phrased as a question.
+
+For Electron, gather evidence for every `WebContents` factory and child, preload/IPC
+surface, session or partition, target platform, and production package configuration.
+One secure window or development-mode observation does not prove the others.
 
 Presence-only grep hits are leads. Absence from one file is not proof of a repository-wide
 gap; check shared middleware, platform config, and deployment manifests first.
@@ -170,6 +190,7 @@ Use this structure:
 
 **Application profile:** <browser/API, identity, exposure, data, deployment>
 **Baseline:** OWASP ASVS 5.0.0 Level <1|2|3>
+**Desktop runtime baseline:** <when applicable: Electron Security Checklist and official platform guidance, verified on date against resolved Electron version>
 **Assumptions:** <unresolved threat-model facts>
 
 ### Assessed-Control Summary
@@ -220,10 +241,12 @@ Still list unresolved verification questions.
 
 Prefer primary sources in this order:
 
-1. OWASP ASVS 5.0.0 for control coverage and assurance level.
-2. OWASP Cheat Sheet Series for implementation guidance.
-3. Standards and platform documentation (NIST, RFCs, MDN, Node/framework docs).
-4. Official library documentation such as Helmet.
+1. OWASP ASVS 5.0.0 for web/service control coverage and assurance level.
+2. Electron's security checklist, API/runtime documentation, release timelines, and
+   security advisories for Electron applications.
+3. OWASP Cheat Sheet Series for implementation guidance.
+4. Standards and platform documentation (NIST, RFCs, MDN, Node/framework docs).
+5. Official library documentation such as Helmet.
 
 When internet access is available, verify version-sensitive defaults against official
 sources and the installed dependency version. Never use listicles as normative sources.
@@ -240,6 +263,7 @@ re-verified.
 | [`references/identity-sessions-and-secrets.md`](./references/identity-sessions-and-secrets.md) | Passwords, MFA/passkeys, recovery, sessions, tokens, application crypto, secret lifecycle |
 | [`references/deployment-and-operations.md`](./references/deployment-and-operations.md) | TLS/proxies, rate limiting, containers, storage, CI/dependencies, logging/errors, backups |
 | [`references/javascript-frameworks.md`](./references/javascript-frameworks.md) | Express/Nest/Next/React/Vue/Angular evidence and secure-default checks |
+| [`references/electron-controls.md`](./references/electron-controls.md) | Electron content/process isolation, preload/IPC, navigation, permissions, protocols, versions, packaging, updates, fuses, and storage |
 | [`references/techniques/`](./references/techniques/) | 26 per-control cards: greppable Node/JS anti-patterns, named fixes, and CVE/version caveats; loaded per control in scope |
 
 ## Project adaptation
@@ -247,3 +271,5 @@ re-verified.
 Treat repository security policy, threat models, architecture decisions, and documented
 exceptions as input—not automatic exemptions. Record accepted risk and compensating
 controls explicitly so future reviews do not reopen the same decision without new facts.
+For Electron, adapt recommendations to content trust, native capability tiers, target
+operating systems, packaging/update channels, and the behavior of the shipped artifact.

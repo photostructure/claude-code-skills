@@ -5,7 +5,7 @@
     "url": "https://photostructure.com/coding/"
   },
   "metadata": {
-    "description": "Opinionated Claude Code skills for disciplined planning, proof-based review, clean Conventional Commits, vulnerability review, and web security hardening."
+    "description": "Opinionated Claude Code skills for disciplined planning, proof-based review, clean Conventional Commits, vulnerability review, and web and Electron security hardening."
   },
   "plugins": [
     {
@@ -18,9 +18,9 @@
     {
       "name": "security",
       "source": "./plugins/security",
-      "description": "Two complementary JavaScript/TypeScript web security skills: web-security-review traces data flow and reports only proven vulnerabilities; web-security-hardening performs an applicability-aware OWASP ASVS 5.0.0 gap assessment across browser controls, input/files, identity/sessions/secrets, frameworks, storage, and deployment.",
+      "description": "Two complementary JavaScript/TypeScript web and Electron security skills: web-security-review traces data flow and reports only proven vulnerabilities; web-security-hardening performs applicability-aware OWASP ASVS 5.0.0 and Electron Security Checklist gap assessments across browser, desktop-runtime, identity, storage, packaging, update, and deployment controls.",
       "category": "security",
-      "keywords": ["claude-code", "security", "security-review", "security-hardening", "security-best-practices", "owasp", "asvs", "csp", "javascript", "typescript", "web-security", "self-hosted", "oidc", "docker"]
+      "keywords": ["claude-code", "security", "security-review", "security-hardening", "security-best-practices", "owasp", "asvs", "csp", "javascript", "typescript", "web-security", "self-hosted", "oidc", "docker", "electron", "desktop-security"]
     },
     {
       "name": "cpp",

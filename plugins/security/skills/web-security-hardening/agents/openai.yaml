@@ -1,4 +1,4 @@
 interface:
-  display_name: "Web Security Hardening"
-  short_description: "Assess applicable web security controls"
-  default_prompt: "Use $security:web-security-hardening to assess this app's preventive security controls."
+  display_name: "Web & Electron Security Hardening"
+  short_description: "Assess web and Electron security controls"
+  default_prompt: "Use $security:web-security-hardening to assess preventive security controls for this web or Electron app."

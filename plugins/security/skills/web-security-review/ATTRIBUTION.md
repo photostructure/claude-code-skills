@@ -3,7 +3,7 @@
 `web-security-review` is a composite adapted from three upstream security-review
 skills. It is not affiliated with or endorsed by any of them. Each contributed a
 distinct strength; this skill combines them and narrows the scope to JavaScript /
-TypeScript web applications.
+TypeScript web and Electron desktop applications.
 
 ## Upstream sources
 
@@ -16,7 +16,8 @@ TypeScript web applications.
 ## Changes made
 
 - **Scope narrowed** to JavaScript/TypeScript web frameworks (Node/Express/Nest/Next,
-  React/Vue/Angular); non-JS language and infrastructure guides were dropped.
+  React/Vue/Angular) and Electron desktop applications; non-JS language and general
+  infrastructure guides were dropped.
 - **Merged** the three sources' overlapping guidance into one workflow and de-duplicated
   the vulnerability-class references.
 - **Reorganized** into a lean orchestrator `SKILL.md` (kept under 400 lines) plus
@@ -41,6 +42,13 @@ TypeScript web applications.
   4.0 (consistent with this skill's license). Security assertions were independently
   checked against the cited standards, official project documentation, and upstream
   advisories; the wording here is original except where attribution says otherwise.
+- **Added Electron vulnerability coverage**, synthesized in original wording from the
+  official Electron security checklist, API and packaging documentation, release
+  timelines, and Electron security advisories. The unmaintained Apache-2.0-licensed
+  [Electronegativity](https://github.com/doyensec/electronegativity) project was consulted
+  as a historical inventory of lead patterns; no source code, prose, assigned severity,
+  confidence score, or stale default was imported. Every lead remains subject to this
+  skill's proof gate and current official Electron behavior.
 
 ## Licensing
 

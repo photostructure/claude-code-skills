@@ -1,4 +1,4 @@
 interface:
-  display_name: "Web Security Review"
-  short_description: "Find proven JavaScript web vulnerabilities"
-  default_prompt: "Use $security:web-security-review to review this app for proven vulnerabilities."
+  display_name: "Web & Electron Security Review"
+  short_description: "Find proven JavaScript/Electron vulnerabilities"
+  default_prompt: "Use $security:web-security-review to review this web or Electron app for proven vulnerabilities."

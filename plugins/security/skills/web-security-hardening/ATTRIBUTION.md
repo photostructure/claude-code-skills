@@ -1,8 +1,8 @@
 # Attribution
 
-`web-security-hardening` is an original, JavaScript/TypeScript-focused synthesis of
-security verification standards and primary implementation guidance. It is not
-affiliated with or endorsed by the organizations listed below.
+`web-security-hardening` is an original, JavaScript/TypeScript web- and Electron-focused
+synthesis of security verification standards and primary implementation guidance. It
+is not affiliated with or endorsed by the organizations listed below.
 
 ## Adapted sources
 
@@ -11,12 +11,12 @@ affiliated with or endorsed by the organizations listed below.
 | [OWASP Application Security Verification Standard 5.0.0](https://owasp.org/www-project-application-security-verification-standard/) | CC BY-SA 4.0 | The assurance-level backbone, control domains, and verification-oriented framing. |
 | [OWASP Cheat Sheet Series](https://cheatsheetseries.owasp.org/) | CC BY-SA 4.0 | Implementation guidance for browser controls, validation/encoding, identity, sessions, secrets, files, databases, deployment, and operations. |
 
-The source material was narrowed to JavaScript/TypeScript web applications, rewritten,
-combined, and reorganized into an applicability-aware review workflow and progressive
-reference set. The skill adds the Met / Gap / Not applicable / Needs verification state
-model, separates hardening priority from vulnerability severity, credits effective
-framework defaults, and requires repository evidence for both satisfied controls and
-gaps.
+The source material was narrowed to JavaScript/TypeScript web and Electron applications,
+rewritten, combined, and reorganized into an applicability-aware review workflow and
+progressive reference set. The skill adds the Met / Gap / Not applicable / Needs
+verification state model, separates hardening priority from vulnerability severity,
+credits effective framework defaults, and requires repository evidence for both
+satisfied controls and gaps.
 
 ## Consulted primary sources
 
@@ -29,6 +29,14 @@ version-sensitive behavior; the surrounding expression is original. In particula
 - Helmet and framework documentation inform library- and adapter-specific evidence.
 - Redis, LevelDB, database, container, and platform documentation inform deployment
   checks without treating every missing defense-in-depth setting as a vulnerability.
+- Electron's security checklist, API/runtime and packaging documentation, release
+  timelines, and security advisories inform the desktop-runtime controls and dual-
+  baseline reporting model.
+- The unmaintained Apache-2.0-licensed
+  [Electronegativity](https://github.com/doyensec/electronegativity) project was consulted
+  only as a historical inventory of lead patterns. No code, prose, assigned severity,
+  confidence score, or stale default was imported; current official Electron guidance
+  controls the resulting recommendations.
 - The `references/techniques/` cards synthesize official framework, library, and vendor
   documentation and public CVE advisories alongside OWASP guidance. Version-sensitive
   details are linked to primary sources so reviewers can re-check them against the

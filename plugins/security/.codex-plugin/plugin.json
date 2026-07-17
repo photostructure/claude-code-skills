@@ -1,7 +1,7 @@
 {
   "name": "security",
-  "version": "1.1.0",
-  "description": "Proof-gated vulnerability review and applicability-aware security hardening for JavaScript and TypeScript web applications.",
+  "version": "1.2.0",
+  "description": "Proof-gated vulnerability review and applicability-aware security hardening for JavaScript and TypeScript web and Electron desktop applications.",
   "author": {
     "name": "Matthew McEachen",
     "url": "https://photostructure.com/coding/"
@@ -18,21 +18,23 @@
     "asvs",
     "javascript",
     "typescript",
-    "web-security"
+    "web-security",
+    "electron",
+    "desktop-security"
   ],
   "skills": "./skills/",
   "interface": {
-    "displayName": "Web Security",
+    "displayName": "Web & Electron Security",
     "shortDescription": "Review vulnerabilities and hardening controls",
-    "longDescription": "Two complementary workflows for proven JavaScript and TypeScript web vulnerabilities and OWASP ASVS-guided preventive-control assessments.",
+    "longDescription": "Two complementary workflows for proven JavaScript, TypeScript, and Electron vulnerabilities and applicability-aware OWASP ASVS- and Electron-guided preventive-control assessments.",
     "developerName": "PhotoStructure",
     "category": "Security",
     "capabilities": [
       "Read"
     ],
     "defaultPrompt": [
-      "Review this web application for proven vulnerabilities.",
-      "Assess this application against an ASVS-guided hardening baseline."
+      "Review this web or Electron application for proven vulnerabilities.",
+      "Assess this web or Electron application against the applicable ASVS- and Electron-guided hardening baselines."
     ]
   }
 }

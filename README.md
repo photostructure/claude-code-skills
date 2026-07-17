@@ -2,12 +2,14 @@
 
 A dual [Codex](https://learn.chatgpt.com/docs/plugins) and
 [Claude Code](https://code.claude.com) plugin marketplace for disciplined
-planning, proof-based review, focused Git history, web security, and modern C++
-native development. The same 13 skills are packaged natively for both products.
+planning, proof-based review, focused Git history, web and Electron security, and
+modern C++ native development. The same 13 skills are packaged natively for both
+products.
 
 The `coding` plugin contains nine general engineering workflows. The `security`
-plugin pairs proof-gated JavaScript/TypeScript vulnerability review with an
-applicability-aware OWASP ASVS hardening assessment. The `cpp` plugin provides
+plugin pairs proof-gated JavaScript/TypeScript web and Electron vulnerability review
+with applicability-aware OWASP ASVS and Electron Security Checklist hardening
+assessments. The `cpp` plugin provides
 the corresponding defect-review and build-hardening pair for modern C++ and
 Node.js native addons.
 
@@ -24,8 +26,8 @@ Node.js native addons.
 | coding | `tpp` | Continue the current phase of a living Technical Project Plan (TPP). |
 | coding | `handoff` | Update the active TPP so a later session can continue without rediscovery. |
 | coding | `tpp-orchestrate` | Drive a queue of TPPs through TDD, independent review gates, and coherent commits. |
-| security | `web-security-review` | Trace JavaScript/TypeScript data flow and report only proven vulnerabilities. |
-| security | `web-security-hardening` | Assess applicable preventive controls against an ASVS-guided baseline. |
+| security | `web-security-review` | Trace JavaScript/TypeScript web and Electron data flow and report only proven vulnerabilities. |
+| security | `web-security-hardening` | Assess applicable web and Electron preventive controls against ASVS- and Electron-guided baselines. |
 | cpp | `resource-review` | Prove native memory/resource defects through traces, reproducers, or complete lifetime analysis. |
 | cpp | `project-setup` | Assess cross-platform build hardening, analysis tooling, CI, and modern C++ conventions. |
 

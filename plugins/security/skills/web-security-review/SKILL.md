@@ -1,9 +1,9 @@
 ---
 name: web-security-review
-description: Top-level security code review for JavaScript/TypeScript web applications. Use when the user asks to "security review", "find vulnerabilities", "check for security issues", "audit security", "OWASP review", "is this secure?", or to review Node/Express/React/Vue/Next/Nest/Angular code for database/storage security (SQL, MongoDB, Redis, LevelDB), XSS, authentication, authorization (IDOR/BOLA), SSRF, CSRF, deserialization, secrets, or crypto issues. Traces data flow and reports only findings with concrete data-flow, exposure, or configuration proof. Do not restart the full workflow for a delegated leaf validation task.
+description: Top-level security code review for JavaScript/TypeScript web applications and Electron desktop applications. Use when the user asks to "security review", "find vulnerabilities", "check for security issues", "audit security", "OWASP review", "is this secure?", or to review Node/Express/React/Vue/Next/Nest/Angular/Electron code for database/storage security, XSS, authentication, authorization (IDOR/BOLA), SSRF, CSRF, deserialization, secrets, crypto, renderer/preload/main-process boundaries, contextBridge/IPC, BrowserWindow/WebContents, navigation, custom protocols, deep links, shell integration, permissions, or updater/package integrity. Traces data flow and reports only findings with concrete data-flow, exposure, or configuration proof. Do not restart the full workflow for a delegated leaf validation task.
 ---
 
-# Web Security Review (JavaScript / TypeScript)
+# Web and Electron Security Review (JavaScript / TypeScript)
 
 ## Leaf-mode guard
 
@@ -13,18 +13,19 @@ If the task identifies your role as `leaf-reviewer` or sets
 the supplied candidates, return the verdicts to the caller, and stop before the
 full workflow below.
 
-Identify **exploitable** security vulnerabilities in JavaScript/TypeScript web
-applications. Reason about the code the way a security researcher would — trace
-data flow, understand framework protections, and report only findings you can
-justify with concrete proof. Signal over noise.
+Identify **exploitable** security vulnerabilities in JavaScript/TypeScript web and
+Electron desktop applications. Reason about the code the way a security researcher
+would — trace data flow, understand framework and runtime protections, and report only
+findings you can justify with concrete proof. Signal over noise.
 
 > This skill is a best-of-three composite. See [ATTRIBUTION.md](./ATTRIBUTION.md).
 
 ## Scope
 
 **In scope:** Node.js/TypeScript backends (Express, NestJS, Fastify, Next.js API
-routes) and browser/SSR frontends (React, Vue, Angular, Next.js). Server-side and
-client-side JS/TS, plus the config, CI/CD, and IaC files that ship with them.
+routes), browser/SSR frontends (React, Vue, Angular, Next.js), and Electron main,
+preload, renderer, worker, and utility-process code. Server-side, client-side, and
+desktop JS/TS, plus the config, packaging, CI/CD, and IaC files that ship with them.
 
 **Out of scope:** other languages (defer to a language-specific reviewer) and the
 exclusions in [`references/false-positives.md`](./references/false-positives.md).
@@ -93,7 +94,9 @@ front-load everything into context.
   Treat the diff output plus every listed untracked path as the review scope.
 - Detect frameworks and versions from `package.json` / lockfile (React, Vue,
   Angular, Express, Nest, Next, ORM/driver/ODM, Redis clients, LevelDB adapters, and
-  validation libraries like `zod`/`joi`).
+  validation libraries like `zod`/`joi`). When Electron is present, resolve its exact
+  installed version, target platforms, packaging toolchain, and main/preload/renderer
+  entry points.
 - Verify version-sensitive framework, dependency, and vulnerability behavior against
   primary sources: official project documentation, release notes/advisories, standards,
   or NVD/CISA records. Do not rely on search snippets or third-party summaries.
@@ -118,6 +121,9 @@ matching sections of [`references/vuln-classes.md`](./references/vuln-classes.md
 | Money / counters / multi-step flows      | business logic, race conditions                          |
 | Dockerfile / compose / `.env` / IaC            | deployment hardening — see `self-hosting-hardening.md` |
 | DB service / connection config / migrations    | DB deployment — see `database-deployment-security.md`  |
+| Electron main/preload/renderer / `webPreferences` | renderer-to-native escalation, isolation — see `electron-threats.md` |
+| Electron IPC / bridge / windows / navigation      | capability authorization, cross-frame/window trust — see `electron-threats.md` |
+| Electron protocols / deep links / shell / updater | path/header/command flow, permissions, package integrity — see `electron-threats.md` |
 
 Load [`references/javascript-web-patterns.md`](./references/javascript-web-patterns.md)
 for the framework-specific safe-vs-dangerous catalog (what auto-escapes, which sinks
@@ -133,7 +139,10 @@ Report proven findings in a **Deployment Hardening** section with a Deployment-R
 rating (not the app-vuln severity table). Deployment checklist matches remain subject
 to the proof gate: reachability and concrete impact are required, and a missing
 hardening control alone is not a finding. If an OAuth/OIDC login flow is in scope,
-also run [`references/oidc-sso-review.md`](./references/oidc-sso-review.md).
+also run [`references/oidc-sso-review.md`](./references/oidc-sso-review.md). If Electron
+is detected or the requested artifact is an Electron package/ASAR, additionally run
+[`references/electron-threats.md`](./references/electron-threats.md) and map every
+renderer-to-native trust boundary before classifying candidates.
 
 ### 3. Dependency & secrets quick pass
 
@@ -144,6 +153,10 @@ Fast, high-value wins before the deep scan:
   `npm audit --omit=dev` — but only report a dependency finding with a concrete,
   reachable exploit path; otherwise omit it from findings or put the missing
   reachability fact under **Needs verification**.
+- **Electron runtime:** when present, compare the exact resolved version and target
+  platform with the official support policy, Electron advisories, release notes, and
+  applicable bundled Chromium/Node advisories. Match the affected API/content path and
+  attacker prerequisites before reporting; an outdated line alone is a hardening gap.
 - **Secrets:** scan all files — including `.env`, config, CI/CD, Dockerfiles, IaC —
   for hardcoded API keys, tokens, private keys, and DB connection strings with
   embedded credentials. Real high-value secrets in source/logs are findings;
@@ -161,11 +174,12 @@ queries, `SameSite` cookies, middleware) using
 ### 5. Cross-file data-flow analysis
 
 Step back and look holistically. Trace attacker-controlled input from entry points
-(HTTP params/body/headers/cookies, route segments, uploads, WebSocket messages)
+(HTTP params/body/headers/cookies, route segments, uploads, WebSocket messages,
+renderer/IPC payloads, deep links, protocol requests, navigation, clipboard/downloads)
 across files to dangerous sinks (DB queries, `exec`, HTML output, file writes,
-outbound requests). Catch **second-order** issues (value stored safely, used unsafely
-later) and broken trust boundaries between modules/services that no single-file view
-reveals.
+outbound requests, Electron/OS capabilities). Catch **second-order** issues (value
+stored safely, used unsafely later) and broken trust boundaries between modules,
+processes, frames, windows, or services that no single-file view reveals.
 
 ### 6. Adversarial self-verification
 
@@ -251,6 +265,7 @@ Load on demand — keep SKILL.md context lean.
 | [`references/self-hosting-hardening.md`](./references/self-hosting-hardening.md)   | conditional (deployment scope) | Network exposure, reverse-proxy/`trust proxy`/host-header trust, container/root, secrets in images, CORS, backups, brute-force posture |
 | [`references/database-deployment-security.md`](./references/database-deployment-security.md) | conditional (DB deployment scope) | Least-privilege DB/Redis roles, default creds, TLS, Redis ACLs, LevelDB filesystem boundary, migration privilege, dump exposure |
 | [`references/oidc-sso-review.md`](./references/oidc-sso-review.md)                 | conditional (OAuth/OIDC scope) | redirect_uri + post-login open redirect, state/nonce + unsolicited-response rejection, ID-token validation (sig/iss/aud/exp/JWKS), account-linking takeover, PKCE, token leakage, access-token-vs-ID-token misuse |
+| [`references/electron-threats.md`](./references/electron-threats.md)               | conditional (Electron scope) | Electron trust topology and proof patterns for renderers/preloads/main, contextBridge/IPC, navigation/windows/webviews, protocols/deep links/shell, permissions/sessions, version advisories, updater/ASAR/fuses/storage |
 | [`references/report-format.md`](./references/report-format.md)                     | step 7        | Output template and finding card                                                                                                                                                 |
 
 ## Adapting for your project
@@ -258,4 +273,6 @@ Load on demand — keep SKILL.md context lean.
 Point this skill at `AGENTS.md` and optional `CLAUDE.md` for the app's threat model, trusted
 inputs, and auth boundaries. Add project-specific safe patterns (your validation
 layer, your ORM conventions) to `references/false-positives.md` so the review stops
-re-flagging them, and add any bespoke sinks to `references/vuln-classes.md`.
+re-flagging them, and add any bespoke sinks to `references/vuln-classes.md`. For
+Electron, also document trusted content origins, allowed IPC capabilities, packaged
+platforms, update/signing ownership, and intentional window/session privilege tiers.
