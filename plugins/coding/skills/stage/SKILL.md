@@ -100,6 +100,12 @@ The helper refuses broadened path selections and file-level mode, rename,
 copy, creation, or deletion metadata. Attribute and stage those changes
 separately before selecting content hunks.
 
+The helper generates its own canonical diff and ignores the repository's diff
+configuration (color, prefixes, relative paths, textconv, context, and
+inter-hunk context). Always number hunks from `--list` rather than from a plain
+`git diff`: a repository that sets `diff.interHunkContext` will merge adjacent
+hunks in `git diff` output, so the two numberings can disagree.
+
 If one Git hunk mixes related and unrelated lines, **do not stage that hunk or
 the whole file**. Stop and ask the user how to split or attribute the entangled
 change. Preserving unrelated work is more important than forcing a commit.

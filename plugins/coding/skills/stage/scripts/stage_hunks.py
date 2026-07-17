@@ -187,6 +187,17 @@ def self_test() -> None:
         ("relative", (("diff.relative", "true"),), False),
         ("noprefix", (("diff.noprefix", "true"),), False),
         ("mnemonic", (("diff.mnemonicPrefix", "true"),), False),
+        # color.ui/color.diff = always colorizes even when stdout is a pipe,
+        # which corrupts the patch with ANSI escapes.
+        ("color-ui", (("color.ui", "always"),), False),
+        ("color-diff", (("color.diff", "always"),), False),
+        # A non-default diff.context changes the emitted context lines; a
+        # zero-context patch will not apply without --unidiff-zero.
+        ("context-zero", (("diff.context", "0"),), False),
+        ("context-wide", (("diff.context", "7"),), False),
+        # A large diff.interHunkContext merges adjacent hunks, so selecting
+        # "hunk 1" would silently stage unrelated changes too.
+        ("inter-hunk", (("diff.interHunkContext", "20"),), False),
         (
             "textconv",
             (("diff.stage-hunks-test.textconv", "git hash-object"),),
@@ -198,6 +209,9 @@ def self_test() -> None:
                 ("diff.relative", "true"),
                 ("diff.noprefix", "true"),
                 ("diff.mnemonicPrefix", "true"),
+                ("color.ui", "always"),
+                ("diff.context", "0"),
+                ("diff.interHunkContext", "20"),
                 ("diff.stage-hunks-test.textconv", "git hash-object"),
             ),
             True,
@@ -291,11 +305,14 @@ def main() -> int:
             "--literal-pathspecs",
             "diff",
             "--binary",
+            "--no-color",
             "--no-ext-diff",
             "--no-textconv",
             "--no-relative",
             "--src-prefix=a/",
             "--dst-prefix=b/",
+            "--unified=3",
+            "--inter-hunk-context=0",
             "--",
             args.file,
         ]
