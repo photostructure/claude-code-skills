@@ -30,6 +30,10 @@ Do not report style preferences, speculative future risks, feature requests,
 issues outside changed lines, or diagnostics a compiler, typechecker, or linter
 already reports.
 
+Do not report an issue the code explicitly silences (`// eslint-disable`,
+`# noqa`, `@ts-expect-error`, and similar). The author already made that call
+deliberately. Report it only if you can prove the suppression itself is wrong.
+
 ## Return the report
 
 Sort findings by severity. For each finding include:
