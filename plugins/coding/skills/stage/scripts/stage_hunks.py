@@ -23,14 +23,19 @@ def run_git(
     input_data: bytes | None = None,
     cwd: Path | None = None,
 ) -> bytes:
-    result = subprocess.run(
-        ["git", *args],
-        input=input_data,
-        stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE,
-        cwd=cwd,
-        check=False,
-    )
+    try:
+        result = subprocess.run(
+            ["git", *args],
+            input=input_data,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            cwd=cwd,
+            check=False,
+        )
+    except OSError as error:
+        raise RuntimeError(
+            f"could not run git (is it installed and on PATH?): {error}"
+        ) from error
     if result.returncode != 0:
         message = result.stderr.decode("utf-8", errors="replace").strip()
         raise RuntimeError(message or f"git {' '.join(args)} failed")
